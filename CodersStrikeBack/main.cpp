@@ -1144,7 +1144,7 @@ Node::Node() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node::Node(Action * action, State * state, Node * parent) {
+Node::Node(Action* action, State* state, Node* parent) {
 }
 
 //*************************************************************************************************************
@@ -1164,7 +1164,7 @@ public:
 
 	Action* run(State* state);
 	Action* backtrack(Node* node) const;
-	Node* makeNodeFromState(State* state) const;
+	Node makeNodeFromState(State* state) const;
 
 	Node* maximize(Node* node);
 	Node* minimize(Node* node);
@@ -1192,9 +1192,8 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 
 Action* Minimax::run(State* state) {
-	Node* initialNode = makeNodeFromState(state);
-
-	Node* bestLeaveNode = maximize(initialNode);
+	Node initialNode = makeNodeFromState(state);
+	Node* bestLeaveNode = maximize(&initialNode);
 
 	return backtrack(bestLeaveNode);
 }
@@ -1209,8 +1208,9 @@ Action* Minimax::backtrack(Node* node) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node* Minimax::makeNodeFromState(State* state) const {
-	return nullptr;
+Node Minimax::makeNodeFromState(State* state) const {
+	Node node = Node(NULL, state, NULL);
+	return node;
 }
 
 //*************************************************************************************************************
@@ -1218,6 +1218,7 @@ Node* Minimax::makeNodeFromState(State* state) const {
 
 Node* Minimax::maximize(Node* node) {
 
+	// Create max children for node
 
 
 	return nullptr;
