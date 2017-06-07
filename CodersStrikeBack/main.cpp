@@ -37,6 +37,11 @@ const int SUBSTATE_PODS_COUNT = 2;
 const string SHEILD = "SHEILD";
 const string BOOST = "BOOST";
 
+enum MaximizeMinimize {
+	MM_MAXIMIZE = 0,
+	MM_MINIMIZE
+};
+
 enum TurnStatePodIdx {
 	TSPI_MY_POD_IDX = 0,
 	TSPI_ENEMY_POD_IDX = 1,
@@ -127,6 +132,52 @@ SimulationParams::SimulationParams() {
 		podsThrusts[i] = 0;
 		sheilds[i] = false;
 	}
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+class Action {
+public:
+	Action();
+	~Action();
+
+	void printAction() const;
+private:
+	Coords coords;
+	bool useSheild;
+	int thrust;
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Action::Action() : coords(), useSheild(false), thrust(0) {
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Action::~Action() {
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::printAction() const {
+	cout << coords.xCoord << " " << coords.yCoord << " ";
+
+	if (useSheild) {
+		cout << SHEILD;
+	}
+	else {
+		cout << thrust;
+	}
+
+	cout << endl;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -247,7 +298,9 @@ public:
 		int radius,
 		int sheildTurns,
 		PodRole role,
-		int passedCheckPoints
+		int passedCheckPoints,
+		int turnActionsCount,
+		Action** turnActions
 	);
 	~Pod();
 
@@ -262,6 +315,8 @@ public:
 	int getSheildUp() const { return shieldUp; }
 	PodRole getRole() const { return role; }
 	int getPassedCheckPoints() const { return passedCheckPoints; }
+	int getTurnActionsCount() const { return turnActionsCount; }
+	Action** getTurnActions() const { return turnActions; }
 
 	float calcAngleToTarget(Coords target) const;
 	float calcDircetionToTurn(Coords target) const;
@@ -273,6 +328,8 @@ public:
 	void resetCPCounter();
 	void activateSheild();
 	void manageSheild();
+	void deleteTurnActions();
+	void generateTurnActions();
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -287,6 +344,9 @@ private:
 	int sheildTurnsLeft;
 	PodRole role;
 	int passedCheckPoints;
+
+	int turnActionsCount;
+	Action** turnActions;
 };
 
 //*************************************************************************************************************
@@ -300,7 +360,9 @@ Pod::Pod() :
 	shieldUp(false),
 	sheildTurnsLeft(0),
 	role(PR_INVALID),
-	passedCheckPoints(0)
+	passedCheckPoints(0),
+	turnActionsCount(0),
+	turnActions(NULL)
 {
 }
 
@@ -317,7 +379,9 @@ Pod::Pod(
 	int radius,
 	int sheildTurnsLeft,
 	PodRole role,
-	int passedCheckPoints
+	int passedCheckPoints,
+	int turnActionsCount,
+	Action** turnActions
 ) :
 	Entity(position, speedVector, radius),
 	angle(angle),
@@ -326,7 +390,9 @@ Pod::Pod(
 	shieldUp(shieldUp),
 	sheildTurnsLeft(sheildTurnsLeft),
 	role(role),
-	passedCheckPoints(passedCheckPoints)
+	passedCheckPoints(passedCheckPoints),
+	turnActionsCount(turnActionsCount),
+	turnActions(turnActions)
 {
 }
 
@@ -334,7 +400,7 @@ Pod::Pod(
 //*************************************************************************************************************
 
 Pod::~Pod() {
-
+	deleteTurnActions();
 }
 
 //*************************************************************************************************************
@@ -552,6 +618,30 @@ void Pod::manageSheild() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Pod::deleteTurnActions() {
+	if (turnActions) {
+		for (int actionIdx = 0; actionIdx < turnActionsCount; ++actionIdx) {
+			if (turnActions[actionIdx]) {
+				delete turnActions[actionIdx];
+				turnActions[actionIdx] = NULL;
+			}
+		}
+
+		delete turnActions;
+		turnActions = NULL;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::generateTurnActions() {
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 bool Pod::sheildOn() const {
 	return shieldUp;
 }
@@ -650,6 +740,7 @@ public:
 	Pod* getClosestToCPHunter(PodRole role) const;
 	int getRolePodIdx(PodRole role) const;
 	bool isTerminal() const;
+	void generatePodsTurnActions();
 
 	void debug() const;
 	void debugCheckPoints() const;
@@ -1026,6 +1117,15 @@ bool State::isTerminal() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void State::generatePodsTurnActions() {
+	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
+		pods[podIdx]->generateTurnActions();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void State::assignRoles() {
 	Pod* myRunner = getClosestToCPHunter(PR_MY_HUNTER);
 	Pod* enemyRunner = getClosestToCPHunter(PR_ENEMY_HUNTER);
@@ -1072,57 +1172,18 @@ void State::debugCheckPoints() const {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
-class Action {
-public:
-	Action();
-	~Action();
-
-	void printAction() const;
-private:
-	Coords coords;
-	bool useSheild;
-	int thrust;
-};
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Action::Action() : coords(), useSheild(false), thrust(0) {
-
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Action::~Action() {
-
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Action::printAction() const {
-	cout << coords.xCoord << " " << coords.yCoord << " ";
-
-	if (useSheild) {
-		cout << SHEILD;
-	}
-	else {
-		cout << thrust;
-	}
-
-	cout << endl;
-}
-
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-
 class Node {
 public:
 	Node();
 	Node(Action* action, State* state, Node* parent);
 	~Node();
+
+	Node** getChildren() const { return children; };
+	int getChildrenCount() const { return childrenCount; }
+
+	void createChildren(MaximizeMinimize mm);
+	void deleteChildren();
+	Node* getChildI(int i);
 
 	State* getState() const { return state; }
 private:
@@ -1132,7 +1193,10 @@ private:
 	// Game state for two pods, NULL if my turn
 	State* state;
 
-	Node* parent;
+	Node* parent; // Needed to backTrack the best leave node to parent
+
+	int childrenCount;
+	Node** children;
 };
 
 //*************************************************************************************************************
@@ -1153,6 +1217,53 @@ Node::Node(Action* action, State* state, Node* parent) {
 Node::~Node() {
 }
 
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::createChildren(MaximizeMinimize mm) {
+	Pod* pod = NULL;
+	
+	if (MM_MAXIMIZE == mm) {
+		pod = state->getPod(TSPI_MY_POD_IDX);
+	}
+	else if (MM_MINIMIZE == mm) {
+		pod = state->getPod(TSPI_ENEMY_POD_IDX);
+	}
+
+	Action** actions = pod->getTurnActions();
+	int podTurnActionsCount = pod->getTurnActionsCount();
+
+	children = new Node*[podTurnActionsCount];
+
+	for (int actionIdx = 0; actionIdx < podTurnActionsCount; ++actionIdx) {
+		children[actionIdx] = new Node(actions[actionIdx], state, this);
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::deleteChildren() {
+	if (children) {
+		for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
+			if (children[childIdx]) {
+				delete children[childIdx];
+				children[childIdx] = NULL;
+			}
+		}
+
+			delete children;
+			children = NULL;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Node* Node::getChildI(int i) {
+	return children[i];
+}
+
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -1162,9 +1273,9 @@ public:
 	Minimax();
 	~Minimax();
 
-	Action* run(State* state);
+	Action* run(State* state, PodRole role);
 	Action* backtrack(Node* node) const;
-	Node makeNodeFromState(State* state) const;
+	void deleteTree(Node* node);
 
 	Node* maximize(Node* node);
 	Node* minimize(Node* node);
@@ -1172,6 +1283,8 @@ public:
 	// Evaluation functions
 
 private:
+	Node* tree;
+
 	int maxTreeDepth;
 	int currentDepth;
 };
@@ -1186,14 +1299,20 @@ Minimax::Minimax() {
 //*************************************************************************************************************
 
 Minimax::~Minimax() {
+	deleteTree(tree);
+
+	if (tree) {
+		delete tree;
+		tree = NULL;
+	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action* Minimax::run(State* state) {
-	Node initialNode = makeNodeFromState(state);
-	Node* bestLeaveNode = maximize(&initialNode);
+Action* Minimax::run(State* state, PodRole role) {
+	tree = new Node(NULL, state, NULL);
+	Node* bestLeaveNode = maximize(tree);
 
 	return backtrack(bestLeaveNode);
 }
@@ -1208,9 +1327,15 @@ Action* Minimax::backtrack(Node* node) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node Minimax::makeNodeFromState(State* state) const {
-	Node node = Node(NULL, state, NULL);
-	return node;
+void Minimax::deleteTree(Node* node) {
+	if (node && NULL == node->getChildren()) {
+		delete node;
+		node = NULL;
+	}
+
+	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
+		deleteTree(node->getChildI(childIdx));
+	}
 }
 
 //*************************************************************************************************************
@@ -1218,8 +1343,14 @@ Node Minimax::makeNodeFromState(State* state) const {
 
 Node* Minimax::maximize(Node* node) {
 
-	// Create max children for node
+	node->createChildren(MM_MAXIMIZE);
 
+	Node** children = node->getChildren();
+	int childrenCount = node->getChildrenCount();
+
+	for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
+		minimize(children[childIdx]);
+	}
 
 	return nullptr;
 }
@@ -1255,7 +1386,7 @@ public:
 	void play();
 
 	void makeFirstTurn() const;
-	Action* chooseAction(State* state);
+	Action* chooseAction(State* state, PodRole role);
 	void makeSubStates();
 	void clearSubStates();
 
@@ -1378,6 +1509,7 @@ void Game::getTurnInput() {
 
 void Game::turnBegin() {
 	turnState->assignRoles();
+	turnState->generatePodsTurnActions();
 	makeSubStates();
 }
 
@@ -1390,8 +1522,8 @@ void Game::makeTurn() {
 	}
 	else {
 		// MiniMax
-		Action* runnerAction = chooseAction(myRunnerSubState);
-		Action* hunterAction = chooseAction(myHunterSubState);
+		Action* runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
+		Action* hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
 
 		runnerAction->printAction();
 		hunterAction->printAction();
@@ -1429,9 +1561,9 @@ void Game::makeFirstTurn() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action* Game::chooseAction(State* state) {
+Action* Game::chooseAction(State* state, PodRole role) {
 	minimax = new Minimax();
-	return minimax->run(state);
+	return minimax->run(state, role);
 }
 
 //*************************************************************************************************************
