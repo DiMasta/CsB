@@ -246,7 +246,8 @@ public:
 		bool shieldUp,
 		int radius,
 		int sheildTurns,
-		PodRole role
+		PodRole role,
+		int passedCheckPoints
 	);
 	~Pod();
 
@@ -254,10 +255,13 @@ public:
 	void setNextCheckPointId(int nextCheckPointId) { this->nextCheckPointId = nextCheckPointId; }
 	void setTurnsLeft(int turnsLeft) { this->turnsLeft = turnsLeft; }
 	void setRole(PodRole role) { this->role = role; }
+	void setPassedCheckPoints(int passedCheckPoints) { this->passedCheckPoints = passedCheckPoints; }
 
 	int getNextCheckPointId() const { return nextCheckPointId; }
+	int getTurnsLeft() const { return turnsLeft; }
 	int getSheildUp() const { return shieldUp; }
 	PodRole getRole() const { return role; }
+	int getPassedCheckPoints() const { return passedCheckPoints; }
 
 	float calcAngleToTarget(Coords target) const;
 	float calcDircetionToTurn(Coords target) const;
@@ -282,6 +286,7 @@ private:
 	bool shieldUp;
 	int sheildTurnsLeft;
 	PodRole role;
+	int passedCheckPoints;
 };
 
 //*************************************************************************************************************
@@ -294,7 +299,8 @@ Pod::Pod() :
 	turnsLeft(DEFAULT_POD_TURNS),
 	shieldUp(false),
 	sheildTurnsLeft(0),
-	role(PR_INVALID)
+	role(PR_INVALID),
+	passedCheckPoints(0)
 {
 }
 
@@ -310,7 +316,8 @@ Pod::Pod(
 	bool shieldUp,
 	int radius,
 	int sheildTurnsLeft,
-	PodRole role
+	PodRole role,
+	int passedCheckPoints
 ) :
 	Entity(position, speedVector, radius),
 	angle(angle),
@@ -318,7 +325,8 @@ Pod::Pod(
 	turnsLeft(turnsLeft),
 	shieldUp(shieldUp),
 	sheildTurnsLeft(sheildTurnsLeft),
-	role(role)
+	role(role),
+	passedCheckPoints(passedCheckPoints)
 {
 }
 
@@ -458,6 +466,7 @@ void Pod::computeBounce(Entity* entity) {
 	if (dynamic_cast<CheckPoint*>(entity) != NULL) {
 		// Collision with a checkpoint
 		resetCPCounter();
+		++passedCheckPoints;
 	}
 	else {
 		// If a pod has its shield active its mass is 10 otherwise it's 1
@@ -640,6 +649,7 @@ public:
 	Pod* getPodByRole(PodRole role) const;
 	Pod* getClosestToCPHunter(PodRole role) const;
 	int getRolePodIdx(PodRole role) const;
+	bool isTerminal() const;
 
 	void debug() const;
 	void debugCheckPoints() const;
@@ -1000,6 +1010,22 @@ int State::getRolePodIdx(PodRole role) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+bool State::isTerminal() const {
+	bool terminal = false;
+
+	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
+		if (pods[podIdx]->getPassedCheckPoints() >= checkPointsCount || pods[podIdx]->getTurnsLeft() <= 0) {
+			terminal = true;
+			break;
+		}
+	}
+
+	return terminal;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void State::assignRoles() {
 	Pod* myRunner = getClosestToCPHunter(PR_MY_HUNTER);
 	Pod* enemyRunner = getClosestToCPHunter(PR_ENEMY_HUNTER);
@@ -1097,6 +1123,8 @@ public:
 	Node();
 	Node(Action* action, State* state, Node* parent);
 	~Node();
+
+	State* getState() const { return state; }
 private:
 	// Action to get to node
 	Action* action;
@@ -1134,7 +1162,9 @@ public:
 	Minimax();
 	~Minimax();
 
-	Node* run(State* state);
+	Action* run(State* state);
+	Action* backtrack(Node* node) const;
+	Node* makeNodeFromState(State* state) const;
 
 	Node* maximize(Node* node);
 	Node* minimize(Node* node);
@@ -1142,6 +1172,8 @@ public:
 	// Evaluation functions
 
 private:
+	int maxTreeDepth;
+	int currentDepth;
 };
 
 //*************************************************************************************************************
@@ -1159,21 +1191,47 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node * Minimax::run(State * state) {
+Action* Minimax::run(State* state) {
+	Node* initialNode = makeNodeFromState(state);
+
+	Node* bestLeaveNode = maximize(initialNode);
+
+	return backtrack(bestLeaveNode);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Action* Minimax::backtrack(Node* node) const {
 	return nullptr;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node * Minimax::maximize(Node * node) {
+Node* Minimax::makeNodeFromState(State* state) const {
 	return nullptr;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node * Minimax::minimize(Node * node) {
+Node* Minimax::maximize(Node* node) {
+
+
+
+	return nullptr;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Node* Minimax::minimize(Node* node) {
+
+	if (currentDepth == maxTreeDepth || node->getState()->isTerminal()) {
+
+	}
+
 	return nullptr;
 }
 
@@ -1196,7 +1254,7 @@ public:
 	void play();
 
 	void makeFirstTurn() const;
-	void chooseMove(State* state);
+	Action* chooseAction(State* state);
 	void makeSubStates();
 	void clearSubStates();
 
@@ -1331,8 +1389,11 @@ void Game::makeTurn() {
 	}
 	else {
 		// MiniMax
-		chooseMove(myRunnerSubState);
-		chooseMove(myHunterSubState);
+		Action* runnerAction = chooseAction(myRunnerSubState);
+		Action* hunterAction = chooseAction(myHunterSubState);
+
+		runnerAction->printAction();
+		hunterAction->printAction();
 	}
 }
 
@@ -1367,9 +1428,9 @@ void Game::makeFirstTurn() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Game::chooseMove(State* state) {
+Action* Game::chooseAction(State* state) {
 	minimax = new Minimax();
-	minimax->run(state);
+	return minimax->run(state);
 }
 
 //*************************************************************************************************************
@@ -1406,7 +1467,6 @@ void Game::debug() const {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
-// Test commit
 int main() {
 	Game game;
 	game.play();
