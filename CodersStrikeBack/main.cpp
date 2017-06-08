@@ -115,37 +115,18 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
-struct SimulationParams {
-	SimulationParams();
-
-	Coords targets[GAME_PODS_COUNT];
-	int podsThrusts[GAME_PODS_COUNT];
-	bool sheilds[GAME_PODS_COUNT];
-};
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-SimulationParams::SimulationParams() {
-	for (int i = 0; i < GAME_PODS_COUNT; ++i) {
-		targets[i] = Coords();
-		podsThrusts[i] = 0;
-		sheilds[i] = false;
-	}
-}
-
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-
 class Action {
 public:
 	Action();
 	~Action();
 
+	Coords getTarget() const { return target; }
+	bool getUseSheild() const { return useSheild; }
+	int getThrust() const { return thrust; }
+
 	void printAction() const;
 private:
-	Coords coords;
+	Coords target;
 	bool useSheild;
 	int thrust;
 };
@@ -153,7 +134,7 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action() : coords(), useSheild(false), thrust(0) {
+Action::Action() : target(), useSheild(false), thrust(0) {
 
 }
 
@@ -168,7 +149,7 @@ Action::~Action() {
 //*************************************************************************************************************
 
 void Action::printAction() const {
-	cout << coords.xCoord << " " << coords.yCoord << " ";
+	cout << target.xCoord << " " << target.yCoord << " ";
 
 	if (useSheild) {
 		cout << SHEILD;
@@ -320,7 +301,7 @@ public:
 
 	float calcAngleToTarget(Coords target) const;
 	float calcDircetionToTurn(Coords target) const;
-	void rotate(Coords target, int turnsCount);
+	void rotate(Coords target);
 	void applyThrust(int thrust);
 	void move(float time);
 	void end();
@@ -449,17 +430,15 @@ float Pod::calcDircetionToTurn(Coords target) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::rotate(Coords target, int turnsCount) {
+void Pod::rotate(Coords target) {
 	float angleToTurn = calcDircetionToTurn(target);
 
-	if (turnsCount > 0) {
-		// Can't turn by more than 18 in one turn
-		if (angleToTurn > MAX_ANGLE_PER_TURN) {
-			angleToTurn = MAX_ANGLE_PER_TURN;
-		}
-		else if (angleToTurn < -MAX_ANGLE_PER_TURN) {
-			angleToTurn = -MAX_ANGLE_PER_TURN;
-		}
+	// Can't turn by more than 18 in one turn
+	if (angleToTurn > MAX_ANGLE_PER_TURN) {
+		angleToTurn = MAX_ANGLE_PER_TURN;
+	}
+	else if (angleToTurn < -MAX_ANGLE_PER_TURN) {
+		angleToTurn = -MAX_ANGLE_PER_TURN;
 	}
 
 	angle += angleToTurn;
@@ -731,7 +710,7 @@ public:
 
 	void initState(int checkPointsCount, int podsCount);
 	void setCheckPointData(Coords postion, int id);
-	void simulateTurn(const SimulationParams& simulationParams, int turnsCount);
+	void simulateTurn(Action** podActions);
 	Collision* checkForCollision(Entity* entityA, Entity* entityB) const;
 	void movePods();
 	bool compareCollisions(Collision* collisionA, Collision* collisoionB) const;
@@ -882,15 +861,15 @@ void State::setCheckPointData(Coords postion, int id) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void State::simulateTurn(const SimulationParams& simulationParams, int turnsCount) {
+void State::simulateTurn(Action** podActions) {
 	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
-		pods[podIdx]->rotate(simulationParams.targets[podIdx], turnsCount);
+		pods[podIdx]->rotate(podActions[podIdx]->getTarget());
 
-		if (simulationParams.sheilds[podIdx]) {
+		if (podActions[podIdx]->getUseSheild()) {
 			pods[podIdx]->activateSheild();
 		}
 
-		int thrustToApply = simulationParams.podsThrusts[podIdx];
+		int thrustToApply = podActions[podIdx]->getThrust();
 		if (pods[podIdx]->getSheildUp()) {
 			thrustToApply = 0;
 		}
@@ -1175,17 +1154,24 @@ void State::debugCheckPoints() const {
 class Node {
 public:
 	Node();
-	Node(Action* action, State* state, Node* parent);
+	Node(Action* action, State* state, Node* parent, int childrenCount, Node** children);
 	~Node();
 
 	Node** getChildren() const { return children; };
 	int getChildrenCount() const { return childrenCount; }
+	State* getState() const { return state; }
+
+	void setAction(Action* action) { this->action = action; }
+	void setState(State* state) { this->state = state; }
+	void setParent(Node* parent) { this->parent = parent; }
+	void setChildrenCount(int childrenCount) { this->childrenCount = childrenCount; }
+	void setChildren(Node** children) { this->children = children; }
 
 	void createChildren(MaximizeMinimize mm);
 	void deleteChildren();
 	Node* getChildI(int i);
+	void copyState(State* state);
 
-	State* getState() const { return state; }
 private:
 	// Action to get to node
 	Action* action;
@@ -1202,19 +1188,38 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node::Node() {
+Node::Node() : action(NULL), state(NULL), parent(NULL), childrenCount(0), children(NULL) {
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node::Node(Action* action, State* state, Node* parent) {
+Node::Node(
+	Action* action,
+	State* state,
+	Node* parent,
+	int childrenCount,
+	Node** children
+) :
+	action(action),
+	state(state),
+	parent(parent),
+	childrenCount(childrenCount),
+	children(children)
+{
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Node::~Node() {
+	if (state) {
+		delete state;
+		state = NULL;
+	}
+
+	// Children and parent will be deleted when deleting the whole tree
+	// Action is not dynamically allocated
 }
 
 //*************************************************************************************************************
@@ -1234,9 +1239,25 @@ void Node::createChildren(MaximizeMinimize mm) {
 	int podTurnActionsCount = pod->getTurnActionsCount();
 
 	children = new Node*[podTurnActionsCount];
+	childrenCount = podTurnActionsCount;
 
 	for (int actionIdx = 0; actionIdx < podTurnActionsCount; ++actionIdx) {
-		children[actionIdx] = new Node(actions[actionIdx], state, this);
+		Action* actionForChild = actions[actionIdx];
+
+		if (MM_MAXIMIZE == mm) {
+			// No need to change the state for MAX
+			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL);
+			children[actionIdx]->copyState(state);
+		}
+		else if (MM_MINIMIZE == mm) {
+			// If minimize I need to generate simulate state with action for the enemy pod and the action from the parent node for my pod
+			// Use child action and node action to simulate state for MIN
+			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL);
+			children[actionIdx]->copyState(state);
+
+			Action* actionForSimulation[SUBSTATE_PODS_COUNT] = {action, actionForChild};
+			children[actionIdx]->getState()->simulateTurn(actionForSimulation);
+		}
 	}
 }
 
@@ -1252,8 +1273,8 @@ void Node::deleteChildren() {
 			}
 		}
 
-			delete children;
-			children = NULL;
+		delete children;
+		children = NULL;
 	}
 }
 
@@ -1262,6 +1283,13 @@ void Node::deleteChildren() {
 
 Node* Node::getChildI(int i) {
 	return children[i];
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::copyState(State* state) {
+	this->state = new State(state);
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1311,7 +1339,8 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 
 Action* Minimax::run(State* state, PodRole role) {
-	tree = new Node(NULL, state, NULL);
+	tree = new Node();
+	tree->copyState(state);
 	Node* bestLeaveNode = maximize(tree);
 
 	return backtrack(bestLeaveNode);
