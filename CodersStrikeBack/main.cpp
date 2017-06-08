@@ -1388,6 +1388,12 @@ void Minimax::deleteTree(Node* node) {
 //*************************************************************************************************************
 
 MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
+	if (currentDepth == maxTreeDepth || node->getState()->isTerminal()) {
+		int eval = evaluateState(podRole);
+		MinMaxResult res = MinMaxResult(node, eval);
+		return res;
+	}
+
 	node->createChildren(MM_MAXIMIZE);
 
 	Node** children = node->getChildren();
@@ -1410,12 +1416,6 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 //*************************************************************************************************************
 
 MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
-	if (currentDepth == maxTreeDepth || node->getState()->isTerminal()) {
-		int eval = evaluateState(podRole);
-		MinMaxResult res = MinMaxResult(node, eval);
-		return res;
-	}
-
 	node->createChildren(MM_MINIMIZE);
 
 	Node** children = node->getChildren();
