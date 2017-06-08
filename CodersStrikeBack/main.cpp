@@ -1296,6 +1296,23 @@ void Node::copyState(State* state) {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+struct MinMaxResult {
+	MinMaxResult(
+		Node* bestLeaveNode,
+		int evaluationValue
+	) :
+		bestLeaveNode(bestLeaveNode),
+		evaluationValue(evaluationValue)
+	{}
+
+	Node* bestLeaveNode;
+	int evaluationValue;
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 class Minimax {
 public:
 	Minimax();
@@ -1305,10 +1322,10 @@ public:
 	Action* backtrack(Node* node) const;
 	void deleteTree(Node* node);
 
-	Node* maximize(Node* node);
-	Node* minimize(Node* node);
+	MinMaxResult maximize(Node* node, PodRole podRole);
+	MinMaxResult minimize(Node* node, PodRole podRole);
 
-	// Evaluation functions
+	int evaluateState(PodRole podRole) const;
 
 private:
 	Node* tree;
@@ -1338,12 +1355,12 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action* Minimax::run(State* state, PodRole role) {
+Action* Minimax::run(State* state, PodRole podRole) {
 	tree = new Node();
 	tree->copyState(state);
-	Node* bestLeaveNode = maximize(tree);
+	MinMaxResult bestLeaveNode = maximize(tree, podRole);
 
-	return backtrack(bestLeaveNode);
+	return backtrack(bestLeaveNode.bestLeaveNode);
 }
 
 //*************************************************************************************************************
@@ -1370,30 +1387,59 @@ void Minimax::deleteTree(Node* node) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node* Minimax::maximize(Node* node) {
-
+MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 	node->createChildren(MM_MAXIMIZE);
 
 	Node** children = node->getChildren();
 	int childrenCount = node->getChildrenCount();
 
+	MinMaxResult res = MinMaxResult(NULL, INT_MIN);
+
 	for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
-		minimize(children[childIdx]);
+		MinMaxResult minRes = minimize(children[childIdx], podRole);
+
+		if (minRes.evaluationValue > res.evaluationValue) {
+			res = minRes;
+		}
 	}
 
-	return nullptr;
+	return res;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node* Minimax::minimize(Node* node) {
-
+MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
 	if (currentDepth == maxTreeDepth || node->getState()->isTerminal()) {
-
+		int eval = evaluateState(podRole);
+		MinMaxResult res = MinMaxResult(node, eval);
+		return res;
 	}
 
-	return nullptr;
+	node->createChildren(MM_MINIMIZE);
+
+	Node** children = node->getChildren();
+	int childrenCount = node->getChildrenCount();
+
+	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
+
+	for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
+		MinMaxResult maxRes = maximize(children[childIdx], podRole);
+
+		if (maxRes.evaluationValue < res.evaluationValue) {
+			res = maxRes;
+		}
+	}
+
+	return res;
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Minimax::evaluateState(PodRole podRole) const {
+	return 0;
 }
 
 //-------------------------------------------------------------------------------------------------------------
