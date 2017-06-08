@@ -1325,7 +1325,7 @@ public:
 	MinMaxResult maximize(Node* node, PodRole podRole);
 	MinMaxResult minimize(Node* node, PodRole podRole);
 
-	int evaluateState(PodRole podRole) const;
+	int evaluateState(State* state, PodRole podRole) const;
 
 private:
 	Node* tree;
@@ -1338,6 +1338,7 @@ private:
 //*************************************************************************************************************
 
 Minimax::Minimax() {
+	tree = new Node();
 }
 
 //*************************************************************************************************************
@@ -1356,7 +1357,6 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 
 Action* Minimax::run(State* state, PodRole podRole) {
-	tree = new Node();
 	tree->copyState(state);
 	MinMaxResult bestLeaveNode = maximize(tree, podRole);
 
@@ -1389,7 +1389,7 @@ void Minimax::deleteTree(Node* node) {
 
 MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 	if (currentDepth == maxTreeDepth || node->getState()->isTerminal()) {
-		int eval = evaluateState(podRole);
+		int eval = evaluateState(node->getState(), podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
 		return res;
 	}
@@ -1438,7 +1438,7 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Minimax::evaluateState(PodRole podRole) const {
+int Minimax::evaluateState(State* state, PodRole podRole) const {
 	return 0;
 }
 
