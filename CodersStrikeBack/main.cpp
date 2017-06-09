@@ -37,6 +37,7 @@ const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 const int POD_ACTIONS_COUNT = 7;
+const int MINIMAX_DEPTH = 6;
 
 const string SHEILD = "SHEILD";
 const string BOOST = "BOOST";
@@ -682,14 +683,14 @@ Coords Pod::calcPodTarget(PodDirection podDirection) {
 	sinLeftOffset *= TARGET_OFFSET;
 	cosLeftOffset *= TARGET_OFFSET;
 
-	return Coords(cosLeftOffset, sinLeftOffset);
+	return Coords(cosLeftOffset + position.xCoord, sinLeftOffset + position.yCoord);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 float Pod::clampAngle(float angleToClamp) const {
-	float clampedAngle = 0.f;
+	float clampedAngle = angleToClamp;
 
 	if (angleToClamp > MAX_ANGLE) {
 		clampedAngle = angleToClamp - MAX_ANGLE;
@@ -849,7 +850,7 @@ State::State(State* state) {
 	}
 
 	this->checkPointsCount = sourceCheckPointsCount;
-	this->podsCount = podsCount;
+	this->podsCount = sourcePodsCount;
 }
 
 //*************************************************************************************************************
@@ -961,7 +962,7 @@ void State::simulateTurn(Action** podActions) {
 
 	movePods();
 
-	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
+	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
 		pods[podIdx]->end();
 	}
 }
@@ -1236,7 +1237,14 @@ void State::debugCheckPoints() const {
 class Node {
 public:
 	Node();
-	Node(Action* action, State* state, Node* parent, int childrenCount, Node** children);
+	Node(
+		Action* action,
+		State* state,
+		Node* parent,
+		int childrenCount,
+		Node** children,
+		int nodeDepth
+	);
 	~Node();
 
 	Node** getChildren() const { return children; };
@@ -1244,12 +1252,14 @@ public:
 	State* getState() const { return state; }
 	Action* getAction() const { return action; }
 	Node* getParent() const { return parent; }
+	int getNodeDepth() const { return nodeDepth; }
 
 	void setAction(Action* action) { this->action = action; }
 	void setState(State* state) { this->state = state; }
 	void setParent(Node* parent) { this->parent = parent; }
 	void setChildrenCount(int childrenCount) { this->childrenCount = childrenCount; }
 	void setChildren(Node** children) { this->children = children; }
+	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
 
 	void createChildren(MaximizeMinimize mm);
 	void deleteChildren();
@@ -1267,12 +1277,21 @@ private:
 
 	int childrenCount;
 	Node** children;
+
+	int nodeDepth;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node::Node() : action(NULL), state(NULL), parent(NULL), childrenCount(0), children(NULL) {
+Node::Node() :
+	action(NULL),
+	state(NULL),
+	parent(NULL),
+	childrenCount(0),
+	children(NULL),
+	nodeDepth(0)
+{
 }
 
 //*************************************************************************************************************
@@ -1283,13 +1302,15 @@ Node::Node(
 	State* state,
 	Node* parent,
 	int childrenCount,
-	Node** children
+	Node** children,
+	int nodeDepth
 ) :
 	action(action),
 	state(state),
 	parent(parent),
 	childrenCount(childrenCount),
-	children(children)
+	children(children),
+	nodeDepth(nodeDepth)
 {
 }
 
@@ -1330,13 +1351,13 @@ void Node::createChildren(MaximizeMinimize mm) {
 
 		if (MM_MAXIMIZE == mm) {
 			// No need to change the state for MAX
-			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL);
+			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1);
 			children[actionIdx]->copyState(state);
 		}
 		else if (MM_MINIMIZE == mm) {
 			// If minimize I need to generate simulate state with action for the enemy pod and the action from the parent node for my pod
 			// Use child action and node action to simulate state for MIN
-			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL);
+			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1);
 			children[actionIdx]->copyState(state);
 
 			Action* actionForSimulation[SUBSTATE_PODS_COUNT] = {action, actionForChild};
@@ -1400,11 +1421,13 @@ struct MinMaxResult {
 class Minimax {
 public:
 	Minimax();
+	Minimax(Node* tree, int maxTreeDepth, int currentDepth);
 	~Minimax();
 
 	Action* run(State* state, PodRole role);
 	Action* backtrack(Node* node) const;
 	void deleteTree(Node* node);
+	void initTree();
 
 	MinMaxResult maximize(Node* node, PodRole podRole);
 	MinMaxResult minimize(Node* node, PodRole podRole);
@@ -1423,8 +1446,25 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Minimax::Minimax() {
-	tree = new Node();
+Minimax::Minimax() : 
+	tree(NULL),
+	maxTreeDepth(0),
+	currentDepth(0)
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Minimax::Minimax(
+	Node* tree,
+	int maxTreeDepth,
+	int currentDepth
+) :
+	tree(tree),
+	maxTreeDepth(maxTreeDepth),
+	currentDepth(currentDepth)
+{
 }
 
 //*************************************************************************************************************
@@ -1479,13 +1519,21 @@ void Minimax::deleteTree(Node* node) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Minimax::initTree() {
+	tree = new Node();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
-	if (currentDepth == maxTreeDepth || node->getState()->isTerminal()) {
+	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node->getState(), podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
 		return res;
 	}
 
+	++currentDepth;
 	node->createChildren(MM_MAXIMIZE);
 
 	Node** children = node->getChildren();
@@ -1508,6 +1556,7 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 //*************************************************************************************************************
 
 MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
+	++currentDepth;
 	node->createChildren(MM_MINIMIZE);
 
 	Node** children = node->getChildren();
@@ -1649,11 +1698,11 @@ void Game::gameLoop() {
 
 void Game::getGameInput() {
 	cin >> lapsCount;
-	cerr << lapsCount << endl;
+	//cerr << lapsCount << endl;
 
 	int checkPointsCount;
 	cin >> checkPointsCount;
-	cerr << checkPointsCount << endl;
+	//cerr << checkPointsCount << endl;
 
 	turnState = new State(checkPointsCount, GAME_PODS_COUNT);
 
@@ -1662,7 +1711,7 @@ void Game::getGameInput() {
 	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
 		cin >> checkPointXCoord;
 		cin >> checkPointYCoord;
-		cerr << checkPointXCoord << " " << checkPointYCoord << endl;
+		//cerr << checkPointXCoord << " " << checkPointYCoord << endl;
 
 		turnState->setCheckPointData(Coords((float)checkPointXCoord, (float)checkPointYCoord), cpIdx);
 	}
@@ -1684,7 +1733,7 @@ void Game::getTurnInput() {
 
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
 		cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
-		cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
+		//cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
 
 		Pod** pods = turnState->getPods();
 		pods[podIdx]->setPosition(Coords((float)podXCoord, (float)podYCoord));
@@ -1716,15 +1765,15 @@ void Game::turnBegin() {
 
 void Game::makeTurn() {
 	if (FIRST_TURN == turnsCount) {
-		makeFirstTurn();
+		//makeFirstTurn();
 	}
 	else {
 		// MiniMax
-		//Action* runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
-		//Action* hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
-		//
-		//runnerAction->printAction();
-		//hunterAction->printAction();
+		Action* runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
+		Action* hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
+
+		runnerAction->printAction();
+		hunterAction->printAction();
 	}
 }
 
@@ -1760,7 +1809,8 @@ void Game::makeFirstTurn() const {
 //*************************************************************************************************************
 
 Action* Game::chooseAction(State* state, PodRole role) {
-	minimax = new Minimax();
+	minimax = new Minimax(NULL, MINIMAX_DEPTH, 0);
+	minimax->initTree();
 	return minimax->run(state, role);
 }
 
@@ -1825,11 +1875,9 @@ map = 7982 7873 13284 5513 9539 1380 3637 4405
 8185 8330 0 0 -1 1
 7372 6503 0 0 -1 1
 8592 9243 0 0 -1 1
-*/
+7874 7383 80 -27 341 1
+8754 8016 483 -267 331 1
+7471 6486 83 -14 350 1
+8670 9181 66 -52 322 1
 
-/*
-7874 7383 80 - 27 341 1
-8754 8016 483 - 267 331 1
-7471 6486 83 - 14 350 1
-8670 9181 66 - 52 322 1
 */
