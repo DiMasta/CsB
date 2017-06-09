@@ -22,6 +22,9 @@ const float MASS_WITHOUT_SHEILD = 1.f;
 const float TURN_START_TIME = 0.f;
 const float TURN_END_TIME = 1.f;
 const float MAX_DIST = 99999.f;
+const float MAX_ANGLE = 360.f;
+const float MIN_ANGLE = 0.f;
+const float TARGET_OFFSET = 5000.f;
 
 const int POD_RADIUS = 400;
 const int CHECKPOINT_RADIUS = 600;
@@ -33,6 +36,7 @@ const int INVALID_ID = -1;
 const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
+const int POD_ACTIONS_COUNT = 7;
 
 const string SHEILD = "SHEILD";
 const string BOOST = "BOOST";
@@ -54,6 +58,13 @@ enum PodRole {
 	PR_ENEMY_RUNNER,
 	PR_ENEMY_HUNTER,
 };
+
+enum PodDirection {
+	PD_LEFT = 0,
+	PD_FORWARD,
+	PD_RIGHT,
+};
+
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -118,6 +129,7 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 class Action {
 public:
 	Action();
+	Action(Coords target, bool useSheild, int thrust);
 	~Action();
 
 	Coords getTarget() const { return target; }
@@ -136,6 +148,16 @@ private:
 
 Action::Action() : target(), useSheild(false), thrust(0) {
 
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Action::Action(Coords target, bool useSheild, int thrust) :
+	target(target),
+	useSheild(useSheild),
+	thrust(thrust)
+{
 }
 
 //*************************************************************************************************************
@@ -290,6 +312,7 @@ public:
 	void setTurnsLeft(int turnsLeft) { this->turnsLeft = turnsLeft; }
 	void setRole(PodRole role) { this->role = role; }
 	void setPassedCheckPoints(int passedCheckPoints) { this->passedCheckPoints = passedCheckPoints; }
+	void setTurnActionsCount(int turnActionsCount) { this->turnActionsCount = turnActionsCount; }
 
 	int getNextCheckPointId() const { return nextCheckPointId; }
 	int getTurnsLeft() const { return turnsLeft; }
@@ -311,6 +334,8 @@ public:
 	void manageSheild();
 	void deleteTurnActions();
 	void generateTurnActions();
+	float clampAngle(float angleToClamp) const;
+	Coords calcPodTarget(PodDirection podDirection);
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -615,7 +640,65 @@ void Pod::deleteTurnActions() {
 //*************************************************************************************************************
 
 void Pod::generateTurnActions() {
+	Coords podLeftTarget = calcPodTarget(PD_LEFT);
+	Coords podForwardTarget = calcPodTarget(PD_FORWARD);
+	Coords podRightTarget = calcPodTarget(PD_RIGHT);
 
+	turnActions = new Action*[turnActionsCount];
+
+	turnActions[0] = new Action(podLeftTarget, false, MAX_THRUST);
+	turnActions[1] = new Action(podLeftTarget, true, 0);
+	turnActions[2] = new Action(podForwardTarget, false, MAX_THRUST);
+	turnActions[3] = new Action(podForwardTarget, true, 0);
+	turnActions[4] = new Action(podRightTarget, false, MAX_THRUST);
+	turnActions[5] = new Action(podRightTarget, true, 0);
+	turnActions[6] = new Action(podForwardTarget, true, MAX_THRUST / 2);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords Pod::calcPodTarget(PodDirection podDirection) {
+	float podTargetAngle = 0.f;
+
+	switch (podDirection)
+	{
+	case PD_LEFT:
+		podTargetAngle = clampAngle(MAX_ANGLE - (angle - MAX_ANGLE_PER_TURN));
+		break;
+	case PD_FORWARD:
+		podTargetAngle = clampAngle(MAX_ANGLE - angle);
+		break;
+	case PD_RIGHT:
+		podTargetAngle = clampAngle(MAX_ANGLE - (angle + MAX_ANGLE_PER_TURN));
+		break;
+	default:
+		break;
+	}
+
+	float sinLeftOffset = sin(podTargetAngle);
+	float cosLeftOffset = cos(podTargetAngle);
+
+	sinLeftOffset *= TARGET_OFFSET;
+	cosLeftOffset *= TARGET_OFFSET;
+
+	return Coords(cosLeftOffset, sinLeftOffset);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Pod::clampAngle(float angleToClamp) const {
+	float clampedAngle = 0.f;
+
+	if (angleToClamp > MAX_ANGLE) {
+		clampedAngle = angleToClamp - MAX_ANGLE;
+	}
+	else if (angleToClamp < MIN_ANGLE) {
+		clampedAngle = angleToClamp + MAX_ANGLE;
+	}
+
+	return clampedAngle;
 }
 
 //*************************************************************************************************************
@@ -1160,6 +1243,8 @@ public:
 	Node** getChildren() const { return children; };
 	int getChildrenCount() const { return childrenCount; }
 	State* getState() const { return state; }
+	Action* getAction() const { return action; }
+	Node* getParent() const { return parent; }
 
 	void setAction(Action* action) { this->action = action; }
 	void setState(State* state) { this->state = state; }
@@ -1326,6 +1411,8 @@ public:
 	MinMaxResult minimize(Node* node, PodRole podRole);
 
 	int evaluateState(State* state, PodRole podRole) const;
+	int evaluateRunnerState(State* state) const;
+	int evaluateHunterrState(State* state) const;
 
 private:
 	Node* tree;
@@ -1367,7 +1454,13 @@ Action* Minimax::run(State* state, PodRole podRole) {
 //*************************************************************************************************************
 
 Action* Minimax::backtrack(Node* node) const {
-	return nullptr;
+	Node* parent = node->getParent();
+
+	while (parent->getParent()) {
+		parent = parent->getParent();
+	}
+
+	return parent->getAction();
 }
 
 //*************************************************************************************************************
@@ -1439,6 +1532,32 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
 //*************************************************************************************************************
 
 int Minimax::evaluateState(State* state, PodRole podRole) const {
+	int evaluation = 0;
+
+	if (PR_MY_RUNNER == podRole) {
+		evaluation = evaluateRunnerState(state);
+	}
+	else if (PR_MY_HUNTER == podRole) {
+		evaluation = evaluateHunterrState(state);
+	}
+
+	return evaluation;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Minimax::evaluateRunnerState(State* state) const {
+	int passedCheckPoints = state->getPodByRole(PR_MY_RUNNER)->getPassedCheckPoints();
+
+	return passedCheckPoints;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Minimax::evaluateHunterrState(State* state) const {
+
 	return 0;
 }
 
@@ -1569,6 +1688,7 @@ void Game::getTurnInput() {
 		pods[podIdx]->setSpeedVector(Coords((float)podVx, (float)podVy));
 		pods[podIdx]->setAngle((float)podAngle);
 		pods[podIdx]->setNextCheckPointId(podNextCheckPointId);
+		pods[podIdx]->setTurnActionsCount(POD_ACTIONS_COUNT);
 
 		PodRole role = PR_MY_HUNTER;
 		if (podIdx >= TEAM_PODS_COUNT) {
