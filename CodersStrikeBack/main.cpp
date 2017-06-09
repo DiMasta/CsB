@@ -857,7 +857,6 @@ State::State(State* state) {
 
 State::State(State* state, PodRole role) {
 	int sourceCheckPointsCount = state->getCheckPointsCount();
-	int sourcePodsCount = state->getPodsCount();
 
 	initState(sourceCheckPointsCount, SUBSTATE_PODS_COUNT);
 
@@ -1157,7 +1156,7 @@ int State::getRolePodIdx(PodRole role) const {
 		}
 	}
 
-	return INVALID_ID;
+	return idx;
 }
 
 //*************************************************************************************************************
@@ -1193,7 +1192,7 @@ void State::assignRoles() {
 	Pod* enemyRunner = getClosestToCPHunter(PR_ENEMY_HUNTER);
 
 	myRunner->setRole(PR_MY_RUNNER);
-	enemyRunner->setRole(PR_ENEMY_HUNTER);
+	enemyRunner->setRole(PR_ENEMY_RUNNER);
 }
 
 //*************************************************************************************************************
@@ -1650,9 +1649,11 @@ void Game::gameLoop() {
 
 void Game::getGameInput() {
 	cin >> lapsCount;
+	cerr << lapsCount << endl;
 
 	int checkPointsCount;
 	cin >> checkPointsCount;
+	cerr << checkPointsCount << endl;
 
 	turnState = new State(checkPointsCount, GAME_PODS_COUNT);
 
@@ -1661,6 +1662,7 @@ void Game::getGameInput() {
 	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
 		cin >> checkPointXCoord;
 		cin >> checkPointYCoord;
+		cerr << checkPointXCoord << " " << checkPointYCoord << endl;
 
 		turnState->setCheckPointData(Coords((float)checkPointXCoord, (float)checkPointYCoord), cpIdx);
 	}
@@ -1682,6 +1684,7 @@ void Game::getTurnInput() {
 
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
 		cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
+		cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
 
 		Pod** pods = turnState->getPods();
 		pods[podIdx]->setPosition(Coords((float)podXCoord, (float)podYCoord));
@@ -1717,11 +1720,11 @@ void Game::makeTurn() {
 	}
 	else {
 		// MiniMax
-		Action* runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
-		Action* hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
-
-		runnerAction->printAction();
-		hunterAction->printAction();
+		//Action* runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
+		//Action* hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
+		//
+		//runnerAction->printAction();
+		//hunterAction->printAction();
 	}
 }
 
@@ -1799,10 +1802,34 @@ int main() {
 	Game game;
 	game.play();
 
-	// seed = 681000254
-	// pod_per_player = 2
-	// pod_timeout = 100
-	// map = 7982 7873 13284 5513 9539 1380 3637 4405
-
 	return 0;
 }
+
+// Game simulation parameters
+/*
+seed = 681000254
+pod_per_player = 2
+pod_timeout = 100
+map = 7982 7873 13284 5513 9539 1380 3637 4405
+*/
+
+// Inpit
+/*
+3
+4
+7982 7873
+13284 5513
+9539 1380
+3637 4405
+7779 7416 0 0 -1 1
+8185 8330 0 0 -1 1
+7372 6503 0 0 -1 1
+8592 9243 0 0 -1 1
+*/
+
+/*
+7874 7383 80 - 27 341 1
+8754 8016 483 - 267 331 1
+7471 6486 83 - 14 350 1
+8670 9181 66 - 52 322 1
+*/
