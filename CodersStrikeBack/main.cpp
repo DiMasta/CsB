@@ -37,7 +37,7 @@ const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 const int POD_ACTIONS_COUNT = 7;
-const int MINIMAX_DEPTH = 6;
+const int MINIMAX_DEPTH = 4;
 
 const string SHEILD = "SHEILD";
 const string BOOST = "BOOST";
@@ -172,7 +172,7 @@ Action::~Action() {
 //*************************************************************************************************************
 
 void Action::printAction() const {
-	cout << target.xCoord << " " << target.yCoord << " ";
+	cout << (int)target.xCoord << " " << (int)target.yCoord << " ";
 
 	if (useSheild) {
 		cout << SHEILD;
@@ -1421,7 +1421,7 @@ struct MinMaxResult {
 class Minimax {
 public:
 	Minimax();
-	Minimax(Node* tree, int maxTreeDepth, int currentDepth);
+	Minimax(Node* tree, int maxTreeDepth);
 	~Minimax();
 
 	Action* run(State* state, PodRole role);
@@ -1440,7 +1440,6 @@ private:
 	Node* tree;
 
 	int maxTreeDepth;
-	int currentDepth;
 };
 
 //*************************************************************************************************************
@@ -1448,8 +1447,7 @@ private:
 
 Minimax::Minimax() : 
 	tree(NULL),
-	maxTreeDepth(0),
-	currentDepth(0)
+	maxTreeDepth(0)
 {
 }
 
@@ -1458,12 +1456,10 @@ Minimax::Minimax() :
 
 Minimax::Minimax(
 	Node* tree,
-	int maxTreeDepth,
-	int currentDepth
+	int maxTreeDepth
 ) :
 	tree(tree),
-	maxTreeDepth(maxTreeDepth),
-	currentDepth(currentDepth)
+	maxTreeDepth(maxTreeDepth)
 {
 }
 
@@ -1493,13 +1489,15 @@ Action* Minimax::run(State* state, PodRole podRole) {
 //*************************************************************************************************************
 
 Action* Minimax::backtrack(Node* node) const {
-	Node* parent = node->getParent();
+	Node* n = node;
+	Node* p = node->getParent();
 
-	while (parent->getParent()) {
-		parent = parent->getParent();
+	while (p->getParent()) {
+		n = p;
+		p = n->getParent();
 	}
 
-	return parent->getAction();
+	return n->getAction();
 }
 
 //*************************************************************************************************************
@@ -1533,7 +1531,6 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 		return res;
 	}
 
-	++currentDepth;
 	node->createChildren(MM_MAXIMIZE);
 
 	Node** children = node->getChildren();
@@ -1556,7 +1553,6 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 //*************************************************************************************************************
 
 MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
-	++currentDepth;
 	node->createChildren(MM_MINIMIZE);
 
 	Node** children = node->getChildren();
@@ -1765,7 +1761,7 @@ void Game::turnBegin() {
 
 void Game::makeTurn() {
 	if (FIRST_TURN == turnsCount) {
-		//makeFirstTurn();
+		makeFirstTurn();
 	}
 	else {
 		// MiniMax
@@ -1809,7 +1805,7 @@ void Game::makeFirstTurn() const {
 //*************************************************************************************************************
 
 Action* Game::chooseAction(State* state, PodRole role) {
-	minimax = new Minimax(NULL, MINIMAX_DEPTH, 0);
+	minimax = new Minimax(NULL, MINIMAX_DEPTH);
 	minimax->initTree();
 	return minimax->run(state, role);
 }
