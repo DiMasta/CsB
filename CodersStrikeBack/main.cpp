@@ -71,6 +71,17 @@ enum PodDirection {
 	PD_RIGHT,
 };
 
+enum ActionType {
+	AT_INVALID_ACTION = -1,
+	AT_LEFT_MAX_SPEED = 0,
+	AT_LEFT_MIN_SPEED,
+	AT_LEFT_SHEILD,
+	AT_RIGHT_MAX_SPEED,
+	AT_RIGHT_MIN_SPEED,
+	AT_RIGHT_SHEILD,
+	AT_FORWARD_NAX_SPEED,
+};
+
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -135,7 +146,7 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 class Action {
 public:
 	Action();
-	Action(Coords target, bool useSheild, int thrust);
+	Action(Coords target, bool useSheild, int thrust, ActionType type);
 	~Action();
 
 	Coords getTarget() const { return target; }
@@ -143,26 +154,30 @@ public:
 	int getThrust() const { return thrust; }
 
 	void printAction() const;
+
+	void debug() const;
 private:
 	Coords target;
 	bool useSheild;
 	int thrust;
+	ActionType type;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action() : target(), useSheild(false), thrust(0) {
+Action::Action() : target(), useSheild(false), thrust(0), type(AT_INVALID_ACTION) {
 
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action(Coords target, bool useSheild, int thrust) :
+Action::Action(Coords target, bool useSheild, int thrust, ActionType type) :
 	target(target),
 	useSheild(useSheild),
-	thrust(thrust)
+	thrust(thrust),
+	type(type)
 {
 }
 
@@ -187,6 +202,13 @@ void Action::printAction() const {
 	}
 
 	cout << endl;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::debug() const {
+	cerr << "ACTION_TYPE: " << type << endl;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -654,13 +676,13 @@ void Pod::generateTurnActions() {
 
 	turnActions = new Action*[turnActionsCount];
 
-	turnActions[0] = new Action(podLeftTarget, false, MAX_THRUST);
-	turnActions[1] = new Action(podLeftTarget, false, 0);
-	turnActions[2] = new Action(podLeftTarget, true, 0);
-	turnActions[3] = new Action(podRightTarget, false, MAX_THRUST);
-	turnActions[4] = new Action(podRightTarget, false, 0);
-	turnActions[5] = new Action(podRightTarget, true, 0);
-	turnActions[6] = new Action(podForwardTarget, false, MAX_THRUST);
+	turnActions[0] = new Action(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
+	turnActions[1] = new Action(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
+	turnActions[2] = new Action(podLeftTarget, true, 0, AT_LEFT_SHEILD);
+	turnActions[3] = new Action(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
+	turnActions[4] = new Action(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
+	turnActions[5] = new Action(podRightTarget, true, 0, AT_RIGHT_SHEILD);
+	turnActions[6] = new Action(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
 }
 
 //*************************************************************************************************************
@@ -684,8 +706,10 @@ Coords Pod::calcPodTarget(PodDirection podDirection) {
 		break;
 	}
 
-	float sinLeftOffset = sin(podTargetAngle);
-	float cosLeftOffset = cos(podTargetAngle);
+	float angleRadians = podTargetAngle * ((float)M_PI / (MAX_ANGLE / 2));
+
+	float sinLeftOffset = sin(angleRadians);
+	float cosLeftOffset = cos(angleRadians);
 
 	sinLeftOffset *= TARGET_OFFSET;
 	cosLeftOffset *= TARGET_OFFSET;
@@ -1832,6 +1856,9 @@ void Game::makeTurn() {
 
 		runnerAction->printAction();
 		hunterAction->printAction();
+
+		runnerAction->debug();
+		hunterAction->debug();
 	}
 }
 
