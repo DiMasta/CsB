@@ -38,6 +38,11 @@ const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 const int POD_ACTIONS_COUNT = 7;
 const int MINIMAX_DEPTH = 4;
+const int LAPS_COUNT = 3;
+
+const int PASSED_CPS_WEIGHT = 5000;
+const int DIST_TO_NEXT_CP_WEIGHT = 3;
+const int ANGLE_TO_NEXT_CP_WEIGHT = 200;
 
 const string SHEILD = "SHEILD";
 const string BOOST = "BOOST";
@@ -172,7 +177,7 @@ Action::~Action() {
 //*************************************************************************************************************
 
 void Action::printAction() const {
-	cout << (int)target.xCoord << " " << (int)target.yCoord << " ";
+	cout << round(target.xCoord) << " " << round(target.yCoord) << " ";
 
 	if (useSheild) {
 		cout << SHEILD;
@@ -535,6 +540,8 @@ float Pod::truncate(float toTruncate) {
 
 void Pod::computeBounce(Entity* entity) {
 	if (dynamic_cast<CheckPoint*>(entity) != NULL) {
+		// May be here is good to check if the CP is the next CP id
+
 		// Collision with a checkpoint
 		resetCPCounter();
 		++passedCheckPoints;
@@ -648,12 +655,12 @@ void Pod::generateTurnActions() {
 	turnActions = new Action*[turnActionsCount];
 
 	turnActions[0] = new Action(podLeftTarget, false, MAX_THRUST);
-	turnActions[1] = new Action(podLeftTarget, true, 0);
-	turnActions[2] = new Action(podForwardTarget, false, MAX_THRUST);
-	turnActions[3] = new Action(podForwardTarget, true, 0);
-	turnActions[4] = new Action(podRightTarget, false, MAX_THRUST);
+	turnActions[1] = new Action(podLeftTarget, false, 0);
+	turnActions[2] = new Action(podLeftTarget, true, 0);
+	turnActions[3] = new Action(podRightTarget, false, MAX_THRUST);
+	turnActions[4] = new Action(podRightTarget, false, 0);
 	turnActions[5] = new Action(podRightTarget, true, 0);
-	turnActions[6] = new Action(podForwardTarget, true, MAX_THRUST / 2);
+	turnActions[6] = new Action(podForwardTarget, false, MAX_THRUST);
 }
 
 //*************************************************************************************************************
@@ -876,6 +883,10 @@ State::State(State* state, PodRole role) {
 
 	memcpy(this->pods[TSPI_MY_POD_IDX], state->pods[sourceMyPodIdx], sizeof(Pod));
 	memcpy(this->pods[TSPI_ENEMY_POD_IDX], state->pods[sourceEnemyPodIdx], sizeof(Pod));
+
+	for (int cpIdx = 0; cpIdx < sourceCheckPointsCount; ++cpIdx) {
+		memcpy(this->checkPoints[cpIdx], state->checkPoints[cpIdx], sizeof(CheckPoint));
+	}
 
 	this->checkPointsCount = sourceCheckPointsCount;
 	this->podsCount = SUBSTATE_PODS_COUNT;
@@ -1592,17 +1603,64 @@ int Minimax::evaluateState(State* state, PodRole podRole) const {
 //*************************************************************************************************************
 
 int Minimax::evaluateRunnerState(State* state) const {
-	int passedCheckPoints = state->getPodByRole(PR_MY_RUNNER)->getPassedCheckPoints();
+	int evalValue = 0;
 
-	return passedCheckPoints;
+	Pod* runner = state->getPodByRole(PR_MY_RUNNER);
+	int passedCheckPoints = runner->getPassedCheckPoints();
+	int cpsToWin = LAPS_COUNT * state->getCheckPointsCount();
+
+	if (passedCheckPoints >= cpsToWin) {
+		evalValue = INT_MAX;
+	}
+	else if (runner->getTurnsLeft() <= 0) {
+		evalValue = INT_MIN;
+	}
+	else {
+		int nextCpId = runner->getNextCheckPointId();
+		CheckPoint* nextCp = state->getCheckPoint(nextCpId);
+		Coords nextCpPosition = nextCp->getPosition();
+		int distToNextCp = (int)runner->getPosition().distance(nextCpPosition);
+		int angleToNextCp = (int)runner->calcAngleToTarget(nextCpPosition);
+
+		evalValue =
+			(PASSED_CPS_WEIGHT * passedCheckPoints) -
+			(DIST_TO_NEXT_CP_WEIGHT * distToNextCp) -
+			(ANGLE_TO_NEXT_CP_WEIGHT * angleToNextCp);
+	}
+
+	return evalValue;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 int Minimax::evaluateHunterrState(State* state) const {
+	int evalValue = 0;
 
-	return 0;
+	Pod* hunter = state->getPodByRole(PR_MY_HUNTER);
+	int passedCheckPoints = hunter->getPassedCheckPoints();
+	int cpsToWin = LAPS_COUNT * state->getCheckPointsCount();
+
+	if (passedCheckPoints >= cpsToWin) {
+		evalValue = INT_MAX;
+	}
+	else if (hunter->getTurnsLeft() <= 0) {
+		evalValue = INT_MIN;
+	}
+	else {
+		int nextCpId = hunter->getNextCheckPointId();
+		CheckPoint* nextCp = state->getCheckPoint(nextCpId);
+		Coords nextCpPosition = nextCp->getPosition();
+		int distToNextCp = (int)hunter->getPosition().distance(nextCpPosition);
+		int angleToNextCp = (int)hunter->calcAngleToTarget(nextCpPosition);
+
+		evalValue =
+			(PASSED_CPS_WEIGHT * passedCheckPoints) -
+			(DIST_TO_NEXT_CP_WEIGHT * distToNextCp) -
+			(ANGLE_TO_NEXT_CP_WEIGHT * angleToNextCp);
+	}
+
+	return evalValue;
 }
 
 //-------------------------------------------------------------------------------------------------------------
