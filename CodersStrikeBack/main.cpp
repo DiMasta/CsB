@@ -672,13 +672,13 @@ Coords Pod::calcPodTarget(PodDirection podDirection) {
 	switch (podDirection)
 	{
 	case PD_LEFT:
-		podTargetAngle = clampAngle(MAX_ANGLE - (angle - MAX_ANGLE_PER_TURN));
+		podTargetAngle = clampAngle(angle - MAX_ANGLE_PER_TURN);
 		break;
 	case PD_FORWARD:
-		podTargetAngle = clampAngle(MAX_ANGLE - angle);
+		podTargetAngle = clampAngle(angle);
 		break;
 	case PD_RIGHT:
-		podTargetAngle = clampAngle(MAX_ANGLE - (angle + MAX_ANGLE_PER_TURN));
+		podTargetAngle = clampAngle(angle + MAX_ANGLE_PER_TURN);
 		break;
 	default:
 		break;
@@ -811,6 +811,7 @@ public:
 	int getRolePodIdx(PodRole role) const;
 	bool isTerminal() const;
 	void generatePodsTurnActions();
+	void turnEnd();
 
 	void debug() const;
 	void debugCheckPoints() const;
@@ -1193,6 +1194,15 @@ bool State::isTerminal() const {
 void State::generatePodsTurnActions() {
 	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
 		pods[podIdx]->generateTurnActions();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::turnEnd() {
+	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
+		pods[podIdx]->deleteTurnActions();
 	}
 }
 
@@ -1775,15 +1785,7 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
-	int podXCoord;
-	int podYCoord;
-
-	int podVx;
-	int podVy;
-
-	int podAngle;
-
-	int podNextCheckPointId;
+	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
 
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
 		cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
@@ -1809,9 +1811,11 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
-	turnState->assignRoles();
-	turnState->generatePodsTurnActions();
-	makeSubStates();
+	if (FIRST_TURN != turnsCount) {
+		turnState->assignRoles();
+		turnState->generatePodsTurnActions();
+		makeSubStates();
+	}
 }
 
 //*************************************************************************************************************
@@ -1835,8 +1839,11 @@ void Game::makeTurn() {
 //*************************************************************************************************************
 
 void Game::turnEnd() {
+	if (FIRST_TURN != turnsCount) {
+		clearSubStates();
+	}
+
 	++turnsCount;
-	clearSubStates();
 }
 
 //*************************************************************************************************************
