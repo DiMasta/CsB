@@ -152,6 +152,7 @@ public:
 	Coords getTarget() const { return target; }
 	bool getUseSheild() const { return useSheild; }
 	int getThrust() const { return thrust; }
+	void fillAction(Coords target, bool useSheild, int thrust, ActionType type);
 
 	void printAction() const;
 
@@ -186,6 +187,16 @@ Action::Action(Coords target, bool useSheild, int thrust, ActionType type) :
 
 Action::~Action() {
 
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::fillAction(Coords target, bool useSheild, int thrust, ActionType type) {
+	this->target = target;
+	this->useSheild = useSheild;
+	this->thrust = thrust;
+	this->type = type;
 }
 
 //*************************************************************************************************************
@@ -329,9 +340,7 @@ public:
 		int radius,
 		int sheildTurns,
 		PodRole role,
-		int passedCheckPoints,
-		int turnActionsCount,
-		Action** turnActions
+		int passedCheckPoints
 	);
 	~Pod();
 
@@ -340,16 +349,14 @@ public:
 	void setTurnsLeft(int turnsLeft) { this->turnsLeft = turnsLeft; }
 	void setRole(PodRole role) { this->role = role; }
 	void setPassedCheckPoints(int passedCheckPoints) { this->passedCheckPoints = passedCheckPoints; }
-	void setTurnActionsCount(int turnActionsCount) { this->turnActionsCount = turnActionsCount; }
 
 	int getNextCheckPointId() const { return nextCheckPointId; }
 	int getTurnsLeft() const { return turnsLeft; }
 	int getSheildUp() const { return shieldUp; }
 	PodRole getRole() const { return role; }
 	int getPassedCheckPoints() const { return passedCheckPoints; }
-	int getTurnActionsCount() const { return turnActionsCount; }
-	Action** getTurnActions() const { return turnActions; }
 
+	Action getTurnAction(int actionIdx) const;
 	float calcAngleToTarget(Coords target) const;
 	float calcDircetionToTurn(Coords target) const;
 	void rotate(Coords target);
@@ -360,10 +367,10 @@ public:
 	void resetCPCounter();
 	void activateSheild();
 	void manageSheild();
-	void deleteTurnActions();
 	void generateTurnActions();
 	float clampAngle(float angleToClamp) const;
 	Coords calcPodTarget(PodDirection podDirection);
+	void initActions();
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -378,9 +385,7 @@ private:
 	int sheildTurnsLeft;
 	PodRole role;
 	int passedCheckPoints;
-
-	int turnActionsCount;
-	Action** turnActions;
+	Action turnActions[POD_ACTIONS_COUNT];
 };
 
 //*************************************************************************************************************
@@ -394,10 +399,9 @@ Pod::Pod() :
 	shieldUp(false),
 	sheildTurnsLeft(0),
 	role(PR_INVALID),
-	passedCheckPoints(0),
-	turnActionsCount(0),
-	turnActions(NULL)
+	passedCheckPoints(0)
 {
+	initActions();
 }
 
 //*************************************************************************************************************
@@ -413,9 +417,7 @@ Pod::Pod(
 	int radius,
 	int sheildTurnsLeft,
 	PodRole role,
-	int passedCheckPoints,
-	int turnActionsCount,
-	Action** turnActions
+	int passedCheckPoints
 ) :
 	Entity(position, speedVector, radius),
 	angle(angle),
@@ -424,9 +426,7 @@ Pod::Pod(
 	shieldUp(shieldUp),
 	sheildTurnsLeft(sheildTurnsLeft),
 	role(role),
-	passedCheckPoints(passedCheckPoints),
-	turnActionsCount(turnActionsCount),
-	turnActions(turnActions)
+	passedCheckPoints(passedCheckPoints)
 {
 }
 
@@ -434,7 +434,13 @@ Pod::Pod(
 //*************************************************************************************************************
 
 Pod::~Pod() {
-	deleteTurnActions();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Action Pod::getTurnAction(int actionIdx) const {
+	return turnActions[actionIdx];
 }
 
 //*************************************************************************************************************
@@ -652,37 +658,18 @@ void Pod::manageSheild() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::deleteTurnActions() {
-	if (turnActions) {
-		for (int actionIdx = 0; actionIdx < turnActionsCount; ++actionIdx) {
-			if (turnActions[actionIdx]) {
-				delete turnActions[actionIdx];
-				turnActions[actionIdx] = NULL;
-			}
-		}
-
-		delete[] turnActions;
-		turnActions = NULL;
-	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
 void Pod::generateTurnActions() {
 	Coords podLeftTarget = calcPodTarget(PD_LEFT);
 	Coords podForwardTarget = calcPodTarget(PD_FORWARD);
 	Coords podRightTarget = calcPodTarget(PD_RIGHT);
 
-	turnActions = new Action*[turnActionsCount];
-
-	turnActions[0] = new Action(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
-	turnActions[1] = new Action(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
-	turnActions[2] = new Action(podLeftTarget, true, 0, AT_LEFT_SHEILD);
-	turnActions[3] = new Action(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
-	turnActions[4] = new Action(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
-	turnActions[5] = new Action(podRightTarget, true, 0, AT_RIGHT_SHEILD);
-	turnActions[6] = new Action(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
+	turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
+	turnActions[2].fillAction(podLeftTarget, true, 0, AT_LEFT_SHEILD);
+	turnActions[3].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
+	turnActions[4].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
+	turnActions[5].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
+	turnActions[6].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
 }
 
 //*************************************************************************************************************
@@ -715,6 +702,15 @@ Coords Pod::calcPodTarget(PodDirection podDirection) {
 	cosLeftOffset *= TARGET_OFFSET;
 
 	return Coords(cosLeftOffset + position.xCoord, sinLeftOffset + position.yCoord);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::initActions() {
+	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
+		turnActions[actionIdx] = Action();
+	}
 }
 
 //*************************************************************************************************************
@@ -825,7 +821,7 @@ public:
 
 	void initState(int checkPointsCount, int podsCount);
 	void setCheckPointData(Coords postion, int id);
-	void simulateTurn(Action** podActions);
+	void simulateTurn(Action* podActions);
 	Collision* checkForCollision(Entity* entityA, Entity* entityB) const;
 	void movePods();
 	bool compareCollisions(Collision* collisionA, Collision* collisoionB) const;
@@ -980,15 +976,15 @@ void State::setCheckPointData(Coords postion, int id) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void State::simulateTurn(Action** podActions) {
+void State::simulateTurn(Action* podActions) {
 	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
-		pods[podIdx]->rotate(podActions[podIdx]->getTarget());
+		pods[podIdx]->rotate(podActions[podIdx].getTarget());
 
-		if (podActions[podIdx]->getUseSheild()) {
+		if (podActions[podIdx].getUseSheild()) {
 			pods[podIdx]->activateSheild();
 		}
 
-		int thrustToApply = podActions[podIdx]->getThrust();
+		int thrustToApply = podActions[podIdx].getThrust();
 		if (pods[podIdx]->getSheildUp()) {
 			thrustToApply = 0;
 		}
@@ -1225,9 +1221,6 @@ void State::generatePodsTurnActions() {
 //*************************************************************************************************************
 
 void State::turnEnd() {
-	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
-		pods[podIdx]->deleteTurnActions();
-	}
 }
 
 //*************************************************************************************************************
@@ -1283,7 +1276,7 @@ class Node {
 public:
 	Node();
 	Node(
-		Action* action,
+		Action action,
 		State* state,
 		Node* parent,
 		int childrenCount,
@@ -1295,11 +1288,11 @@ public:
 	Node** getChildren() const { return children; };
 	int getChildrenCount() const { return childrenCount; }
 	State* getState() const { return state; }
-	Action* getAction() const { return action; }
+	Action getAction() const { return action; }
 	Node* getParent() const { return parent; }
 	int getNodeDepth() const { return nodeDepth; }
 
-	void setAction(Action* action) { this->action = action; }
+	void setAction(Action action) { this->action = action; }
 	void setState(State* state) { this->state = state; }
 	void setParent(Node* parent) { this->parent = parent; }
 	void setChildrenCount(int childrenCount) { this->childrenCount = childrenCount; }
@@ -1313,7 +1306,7 @@ public:
 
 private:
 	// Action to get to node
-	Action* action;
+	Action action;
 
 	// Game state for two pods, NULL if my turn
 	State* state;
@@ -1330,7 +1323,7 @@ private:
 //*************************************************************************************************************
 
 Node::Node() :
-	action(NULL),
+	action(),
 	state(NULL),
 	parent(NULL),
 	childrenCount(0),
@@ -1343,7 +1336,7 @@ Node::Node() :
 //*************************************************************************************************************
 
 Node::Node(
-	Action* action,
+	Action action,
 	State* state,
 	Node* parent,
 	int childrenCount,
@@ -1368,6 +1361,11 @@ Node::~Node() {
 		state = NULL;
 	}
 
+	if (children) {
+		delete[] children;
+		children = NULL;
+	}
+
 	// Children and parent will be deleted when deleting the whole tree
 	// Action is not dynamically allocated
 }
@@ -1385,14 +1383,11 @@ void Node::createChildren(MaximizeMinimize mm) {
 		pod = state->getPod(TSPI_ENEMY_POD_IDX);
 	}
 
-	Action** actions = pod->getTurnActions();
-	int podTurnActionsCount = pod->getTurnActionsCount();
+	children = new Node*[POD_ACTIONS_COUNT];
+	childrenCount = POD_ACTIONS_COUNT;
 
-	children = new Node*[podTurnActionsCount];
-	childrenCount = podTurnActionsCount;
-
-	for (int actionIdx = 0; actionIdx < podTurnActionsCount; ++actionIdx) {
-		Action* actionForChild = actions[actionIdx];
+	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
+		Action actionForChild = pod->getTurnAction(actionIdx);
 
 		if (MM_MAXIMIZE == mm) {
 			// No need to change the state for MAX
@@ -1405,7 +1400,7 @@ void Node::createChildren(MaximizeMinimize mm) {
 			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1);
 			children[actionIdx]->copyState(state);
 
-			Action* actionForSimulation[SUBSTATE_PODS_COUNT] = {action, actionForChild};
+			Action actionForSimulation[SUBSTATE_PODS_COUNT] = {action, actionForChild};
 			children[actionIdx]->getState()->simulateTurn(actionForSimulation);
 		}
 	}
@@ -1469,8 +1464,8 @@ public:
 	Minimax(Node* tree, int maxTreeDepth);
 	~Minimax();
 
-	Action* run(State* state, PodRole role);
-	Action* backtrack(Node* node) const;
+	Action run(State* state, PodRole role);
+	Action backtrack(Node* node) const;
 	void deleteTree(Node* node);
 	void initTree();
 
@@ -1523,7 +1518,7 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action* Minimax::run(State* state, PodRole podRole) {
+Action Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
 	MinMaxResult bestLeaveNode = maximize(tree, podRole, INT_MIN, INT_MAX);
 
@@ -1533,7 +1528,7 @@ Action* Minimax::run(State* state, PodRole podRole) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action* Minimax::backtrack(Node* node) const {
+Action Minimax::backtrack(Node* node) const {
 	Node* n = node;
 	Node* p = node->getParent();
 
@@ -1555,7 +1550,9 @@ void Minimax::deleteTree(Node* node) {
 	}
 
 	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
-		deleteTree(node->getChildI(childIdx));
+		if (node) {
+			deleteTree(node->getChildI(childIdx));
+		}
 	}
 }
 
@@ -1728,7 +1725,7 @@ public:
 	void play();
 
 	void makeFirstTurn() const;
-	Action* chooseAction(State* state, PodRole role);
+	Action chooseAction(State* state, PodRole role);
 	void makeSubStates();
 	void clearSubStates();
 
@@ -1855,7 +1852,6 @@ void Game::getTurnInput() {
 		pods[podIdx]->setSpeedVector(Coords((float)podVx, (float)podVy));
 		pods[podIdx]->setAngle((float)podAngle);
 		pods[podIdx]->setNextCheckPointId(podNextCheckPointId);
-		pods[podIdx]->setTurnActionsCount(POD_ACTIONS_COUNT);
 
 		PodRole role = PR_MY_HUNTER;
 		if (podIdx >= TEAM_PODS_COUNT) {
@@ -1886,14 +1882,14 @@ void Game::makeTurn() {
 	}
 	else {
 		// MiniMax
-		Action* runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
-		Action* hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
+		Action runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
+		Action hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
 
-		runnerAction->printAction();
-		hunterAction->printAction();
+		runnerAction.printAction();
+		hunterAction.printAction();
 
-		runnerAction->debug();
-		hunterAction->debug();
+		runnerAction.debug();
+		hunterAction.debug();
 	}
 }
 
@@ -1931,7 +1927,7 @@ void Game::makeFirstTurn() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action* Game::chooseAction(State* state, PodRole role) {
+Action Game::chooseAction(State* state, PodRole role) {
 	minimax = new Minimax(NULL, MINIMAX_DEPTH);
 	minimax->initTree();
 	return minimax->run(state, role);
