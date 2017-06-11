@@ -37,7 +37,7 @@ const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 const int POD_ACTIONS_COUNT = 7;
-const int MINIMAX_DEPTH = 4;
+const int MINIMAX_DEPTH = 6;
 const int LAPS_COUNT = 3;
 
 const int PASSED_CPS_WEIGHT = 5000;
@@ -661,7 +661,7 @@ void Pod::deleteTurnActions() {
 			}
 		}
 
-		delete turnActions;
+		delete[] turnActions;
 		turnActions = NULL;
 	}
 }
@@ -1474,8 +1474,8 @@ public:
 	void deleteTree(Node* node);
 	void initTree();
 
-	MinMaxResult maximize(Node* node, PodRole podRole);
-	MinMaxResult minimize(Node* node, PodRole podRole);
+	MinMaxResult maximize(Node* node, PodRole podRole, int alpha, int beta);
+	MinMaxResult minimize(Node* node, PodRole podRole, int alpha, int beta);
 
 	int evaluateState(State* state, PodRole podRole) const;
 	int evaluateRunnerState(State* state) const;
@@ -1525,7 +1525,7 @@ Minimax::~Minimax() {
 
 Action* Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
-	MinMaxResult bestLeaveNode = maximize(tree, podRole);
+	MinMaxResult bestLeaveNode = maximize(tree, podRole, INT_MIN, INT_MAX);
 
 	return backtrack(bestLeaveNode.bestLeaveNode);
 }
@@ -1569,7 +1569,7 @@ void Minimax::initTree() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
+MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta) {
 	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node->getState(), podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
@@ -1584,10 +1584,18 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 	MinMaxResult res = MinMaxResult(NULL, INT_MIN);
 
 	for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
-		MinMaxResult minRes = minimize(children[childIdx], podRole);
+		MinMaxResult minRes = minimize(children[childIdx], podRole, alpha, beta);
 
 		if (minRes.evaluationValue > res.evaluationValue) {
 			res = minRes;
+		}
+
+		if (minRes.evaluationValue >= beta) {
+			break;
+		}
+
+		if (minRes.evaluationValue > alpha) {
+			alpha = minRes.evaluationValue;
 		}
 	}
 
@@ -1597,7 +1605,7 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
+MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta) {
 	node->createChildren(MM_MINIMIZE);
 
 	Node** children = node->getChildren();
@@ -1606,10 +1614,14 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole) {
 	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
 
 	for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
-		MinMaxResult maxRes = maximize(children[childIdx], podRole);
+		MinMaxResult maxRes = maximize(children[childIdx], podRole, alpha, beta);
 
 		if (maxRes.evaluationValue < res.evaluationValue) {
 			res = maxRes;
+		}
+
+		if (maxRes.evaluationValue < beta) {
+			beta = maxRes.evaluationValue;
 		}
 	}
 
@@ -1778,6 +1790,11 @@ void Game::gameLoop() {
 		turnBegin();
 		makeTurn();
 		turnEnd();
+
+		// Profiling
+		if (2 == turnsCount) {
+			break;
+		}
 	}
 }
 
@@ -1785,11 +1802,13 @@ void Game::gameLoop() {
 //*************************************************************************************************************
 
 void Game::getGameInput() {
-	cin >> lapsCount;
+	//cin >> lapsCount;
+	lapsCount = 3; // Profiling
 	//cerr << lapsCount << endl;
 
 	int checkPointsCount;
-	cin >> checkPointsCount;
+	//cin >> checkPointsCount;
+	checkPointsCount = 4; // Profiling
 	//cerr << checkPointsCount << endl;
 
 	turnState = new State(checkPointsCount, GAME_PODS_COUNT);
@@ -1797,8 +1816,12 @@ void Game::getGameInput() {
 	int checkPointXCoord;
 	int checkPointYCoord;
 	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
-		cin >> checkPointXCoord;
-		cin >> checkPointYCoord;
+		if (0 == cpIdx) { checkPointXCoord = 7982; checkPointYCoord = 7873; }
+		if (1 == cpIdx) { checkPointXCoord = 13284; checkPointYCoord = 5513; }
+		if (2 == cpIdx) { checkPointXCoord = 9539; checkPointYCoord = 1380; }
+		if (3 == cpIdx) { checkPointXCoord = 3637; checkPointYCoord = 7873; }
+		//cin >> checkPointXCoord;
+		//cin >> checkPointYCoord;
 		//cerr << checkPointXCoord << " " << checkPointYCoord << endl;
 
 		turnState->setCheckPointData(Coords((float)checkPointXCoord, (float)checkPointYCoord), cpIdx);
@@ -1812,7 +1835,19 @@ void Game::getTurnInput() {
 	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
 
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
-		cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
+		if (FIRST_TURN == turnsCount) {
+			if (0 == podIdx) { podXCoord = 7779; podYCoord = 7416; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (0 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (0 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (0 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+		}
+		else {
+			if (0 == podIdx) { podXCoord = 7874; podYCoord = 7383; podVx = 80; podVy = -27; podAngle = 341; podNextCheckPointId = 1; }
+			if (0 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
+			if (0 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
+			if (0 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
+		}
+		//cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
 		//cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
 
 		Pod** pods = turnState->getPods();
