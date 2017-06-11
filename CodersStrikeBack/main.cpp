@@ -380,7 +380,6 @@ private:
 	float angle;
 	int nextCheckPointId;
 	int turnsLeft;
-	string belongs;
 	bool shieldUp;
 	int sheildTurnsLeft;
 	PodRole role;
@@ -740,7 +739,6 @@ bool Pod::sheildOn() const {
 //*************************************************************************************************************
 
 void Pod::debug() const {
-	cerr << belongs << ":" << " ";
 	cerr << "Coords:(X = " << position.xCoord << ", Y = " << position.yCoord << ") ";
 	cerr << "Speed:(X = " << speedVector.xCoord << ", Y = " << speedVector.yCoord << ") ";
 	cerr << "Angle:" << angle << " ";
@@ -1544,14 +1542,15 @@ Action Minimax::backtrack(Node* node) const {
 //*************************************************************************************************************
 
 void Minimax::deleteTree(Node* node) {
-	if (node && NULL == node->getChildren()) {
-		delete node;
-		node = NULL;
-	}
-
-	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
-		if (node) {
-			deleteTree(node->getChildI(childIdx));
+	if (node) {
+		if (NULL == node->getChildren()) {
+			delete node;
+			node = NULL;
+		}
+		else {
+			for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
+				deleteTree(node->getChildI(childIdx));
+			}
 		}
 	}
 }
