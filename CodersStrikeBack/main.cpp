@@ -665,8 +665,12 @@ void Pod::generateTurnActions() {
 	Coords podRightTarget = calcPodTarget(PD_RIGHT);
 
 	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
-	turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
-	turnActions[2].fillAction(podLeftTarget, true, 0, AT_LEFT_SHEILD);
+	turnActions[1].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
+	turnActions[2].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+
+	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
+	//turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
+	//turnActions[2].fillAction(podLeftTarget, true, 0, AT_LEFT_SHEILD);
 	//turnActions[3].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
 	//turnActions[4].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
 	//turnActions[5].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
@@ -990,6 +994,9 @@ void State::simulateTurn(Action* podActions) {
 		}
 
 		pods[podIdx]->applyThrust(thrustToApply);
+
+		// After a pod is simulated we must compute new targets
+		pods[podIdx]->generateTurnActions();
 	}
 
 	movePods();
@@ -1867,15 +1874,15 @@ void Game::getTurnInput() {
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
 		if (FIRST_TURN == turnsCount) {
 			if (0 == podIdx) { podXCoord = 7779; podYCoord = 7416; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-			if (0 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-			if (0 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-			if (0 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (1 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (2 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (3 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
 		}
 		else {
 			if (0 == podIdx) { podXCoord = 7874; podYCoord = 7383; podVx = 80; podVy = -27; podAngle = 341; podNextCheckPointId = 1; }
-			if (0 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
-			if (0 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
-			if (0 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
+			if (1 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
+			if (2 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
+			if (3 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
 		}
 		//cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
 		//cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
