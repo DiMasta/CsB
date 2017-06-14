@@ -36,8 +36,10 @@ const int INVALID_ID = -1;
 const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
-const int POD_ACTIONS_COUNT = 7;
-const int MINIMAX_DEPTH = 6;
+//const int POD_ACTIONS_COUNT = 7;
+const int POD_ACTIONS_COUNT = 3; // For debuging
+
+const int MINIMAX_DEPTH = 4;
 const int LAPS_COUNT = 3;
 
 const int PASSED_CPS_WEIGHT = 5000;
@@ -665,10 +667,10 @@ void Pod::generateTurnActions() {
 	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
 	turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
 	turnActions[2].fillAction(podLeftTarget, true, 0, AT_LEFT_SHEILD);
-	turnActions[3].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
-	turnActions[4].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
-	turnActions[5].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
-	turnActions[6].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+	//turnActions[3].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
+	//turnActions[4].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
+	//turnActions[5].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
+	//turnActions[6].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
 }
 
 //*************************************************************************************************************
@@ -1279,7 +1281,8 @@ public:
 		Node* parent,
 		int childrenCount,
 		Node** children,
-		int nodeDepth
+		int nodeDepth,
+		char label
 	);
 	~Node();
 
@@ -1302,6 +1305,8 @@ public:
 	Node* getChildI(int i);
 	void copyState(State* state);
 
+	void setPathToNode();
+
 private:
 	// Action to get to node
 	Action action;
@@ -1315,6 +1320,10 @@ private:
 	Node** children;
 
 	int nodeDepth;
+	
+	// for debuging the tree
+	char label;
+	string pathToNode;
 };
 
 //*************************************************************************************************************
@@ -1326,7 +1335,9 @@ Node::Node() :
 	parent(NULL),
 	childrenCount(0),
 	children(NULL),
-	nodeDepth(0)
+	nodeDepth(0),
+	label('%'),
+	pathToNode("")
 {
 }
 
@@ -1339,14 +1350,16 @@ Node::Node(
 	Node* parent,
 	int childrenCount,
 	Node** children,
-	int nodeDepth
+	int nodeDepth,
+	char label
 ) :
 	action(action),
 	state(state),
 	parent(parent),
 	childrenCount(childrenCount),
 	children(children),
-	nodeDepth(nodeDepth)
+	nodeDepth(nodeDepth),
+	label(label)
 {
 }
 
@@ -1366,6 +1379,8 @@ Node::~Node() {
 
 	// Children and parent will be deleted when deleting the whole tree
 	// Action is not dynamically allocated
+
+	pathToNode.clear();
 }
 
 //*************************************************************************************************************
@@ -1387,17 +1402,14 @@ void Node::createChildren(MaximizeMinimize mm) {
 	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
 		Action actionForChild = pod->getTurnAction(actionIdx);
 
-		if (MM_MAXIMIZE == mm) {
-			// No need to change the state for MAX
-			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1);
-			children[actionIdx]->copyState(state);
-		}
-		else if (MM_MINIMIZE == mm) {
+		// No need to change the state for MAX
+		children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1, 'A' + actionIdx);
+		children[actionIdx]->copyState(state);
+		children[actionIdx]->setPathToNode();
+		
+		if (MM_MINIMIZE == mm) {
 			// If minimize I need to generate simulate state with action for the enemy pod and the action from the parent node for my pod
 			// Use child action and node action to simulate state for MIN
-			children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1);
-			children[actionIdx]->copyState(state);
-
 			Action actionForSimulation[SUBSTATE_PODS_COUNT] = {action, actionForChild};
 			children[actionIdx]->getState()->simulateTurn(actionForSimulation);
 		}
@@ -1433,6 +1445,24 @@ Node* Node::getChildI(int i) {
 
 void Node::copyState(State* state) {
 	this->state = new State(state);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::setPathToNode() {
+	Node* n = NULL;
+	Node* p = getParent();
+
+	pathToNode.push_back(label);
+
+	while (p) {
+		n = p;
+		pathToNode.push_back(n->label);
+		p = n->getParent();
+	}
+
+	reverse(pathToNode.begin(), pathToNode.end());
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1567,8 +1597,12 @@ void Minimax::initTree() {
 
 MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta) {
 	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
-		int eval = evaluateState(node->getState(), podRole);
-		MinMaxResult res = MinMaxResult(node, eval);
+		//int eval = evaluateState(node->getState(), podRole);
+		//MinMaxResult res = MinMaxResult(node, eval);
+		//return res;
+
+		MinMaxResult res = MinMaxResult(node, rand() % 100); // For debugging the tree
+
 		return res;
 	}
 
@@ -1586,13 +1620,13 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 			res = minRes;
 		}
 
-		if (minRes.evaluationValue >= beta) {
-			break;
-		}
-
-		if (minRes.evaluationValue > alpha) {
-			alpha = minRes.evaluationValue;
-		}
+		//if (minRes.evaluationValue >= beta) {
+		//	break;
+		//}
+		//
+		//if (minRes.evaluationValue > alpha) {
+		//	alpha = minRes.evaluationValue;
+		//}
 	}
 
 	return res;
@@ -1616,9 +1650,9 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 			res = maxRes;
 		}
 
-		if (maxRes.evaluationValue < beta) {
-			beta = maxRes.evaluationValue;
-		}
+		//if (maxRes.evaluationValue < beta) {
+		//	beta = maxRes.evaluationValue;
+		//}
 	}
 
 	return res;
@@ -1886,9 +1920,6 @@ void Game::makeTurn() {
 
 		runnerAction.printAction();
 		hunterAction.printAction();
-
-		runnerAction.debug();
-		hunterAction.debug();
 	}
 }
 
