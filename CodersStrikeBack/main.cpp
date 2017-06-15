@@ -1299,6 +1299,7 @@ public:
 	Action getAction() const { return action; }
 	Node* getParent() const { return parent; }
 	int getNodeDepth() const { return nodeDepth; }
+	string getPathToNode() const { return pathToNode; }
 
 	void setAction(Action action) { this->action = action; }
 	void setState(State* state) { this->state = state; }
@@ -1307,6 +1308,8 @@ public:
 	void setChildren(Node** children) { this->children = children; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
 
+	void addChild(Node* newChild);
+	Node* createChild(MaximizeMinimize mm, int actionIdx);
 	void createChildren(MaximizeMinimize mm);
 	void deleteChildren();
 	Node* getChildI(int i);
@@ -1388,6 +1391,56 @@ Node::~Node() {
 	// Action is not dynamically allocated
 
 	pathToNode.clear();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::addChild(Node* newChild) {
+	++childrenCount;
+
+	Node** temp = new Node*[childrenCount];
+
+	// Redirect all pointers of the current children
+	for (int childIdx = 0; childIdx < childrenCount - 1; ++childIdx) {
+		temp[childIdx] = children[childIdx];
+	}
+
+	temp[childrenCount - 1] = newChild;
+
+	delete[] children;
+	children = temp;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Node* Node::createChild(MaximizeMinimize mm, int actionIdx) {
+	Node* child = NULL;
+	Pod* pod = NULL;
+
+	if (MM_MAXIMIZE == mm) {
+		pod = state->getPod(TSPI_MY_POD_IDX);
+	}
+	else if (MM_MINIMIZE == mm) {
+		pod = state->getPod(TSPI_ENEMY_POD_IDX);
+	}
+
+	Action actionForChild = pod->getTurnAction(actionIdx);
+
+	// No need to change the state for MAX
+	child = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1, 'A' + actionIdx);
+	child->copyState(state);
+	child->setPathToNode();
+
+	if (MM_MINIMIZE == mm) {
+		// If minimize I need to generate simulate state with action for the enemy pod and the action from the parent node for my pod
+		// Use child action and node action to simulate state for MIN
+		Action actionForSimulation[SUBSTATE_PODS_COUNT] = { action, actionForChild };
+		child->getState()->simulateTurn(actionForSimulation);
+	}
+
+	return child;
 }
 
 //*************************************************************************************************************
@@ -1511,6 +1564,7 @@ public:
 	int evaluateRunnerState(State* state) const;
 	int evaluateHunterrState(State* state) const;
 
+	int debugEval(const string& nodePath) const;
 private:
 	Node* tree;
 
@@ -1555,9 +1609,11 @@ Minimax::~Minimax() {
 
 Action Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
-	MinMaxResult bestLeaveNode = maximize(tree, podRole, INT_MIN, INT_MAX);
+	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX);
 
-	return backtrack(bestLeaveNode.bestLeaveNode);
+	cout << minimaxRes.bestLeaveNode->getPathToNode() << endl;
+
+	return backtrack(minimaxRes.bestLeaveNode);
 }
 
 //*************************************************************************************************************
@@ -1608,20 +1664,19 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 		//MinMaxResult res = MinMaxResult(node, eval);
 		//return res;
 
-		MinMaxResult res = MinMaxResult(node, rand() % 100); // For debugging the tree
+		int rInt = debugEval(node->getPathToNode());
 
+		MinMaxResult res = MinMaxResult(node, rInt); // For debugging the tree
 		return res;
 	}
 
-	node->createChildren(MM_MAXIMIZE);
-
-	Node** children = node->getChildren();
-	int childrenCount = node->getChildrenCount();
-
 	MinMaxResult res = MinMaxResult(NULL, INT_MIN);
 
-	for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
-		MinMaxResult minRes = minimize(children[childIdx], podRole, alpha, beta);
+	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
+		Node* child = node->createChild(MM_MAXIMIZE, actionIdx);
+		node->addChild(child);
+
+		MinMaxResult minRes = minimize(child, podRole, alpha, beta);
 
 		if (minRes.evaluationValue > res.evaluationValue) {
 			res = minRes;
@@ -1643,15 +1698,13 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 //*************************************************************************************************************
 
 MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta) {
-	node->createChildren(MM_MINIMIZE);
-
-	Node** children = node->getChildren();
-	int childrenCount = node->getChildrenCount();
-
 	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
 
-	for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
-		MinMaxResult maxRes = maximize(children[childIdx], podRole, alpha, beta);
+	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
+		Node* child = node->createChild(MM_MINIMIZE, actionIdx);
+		node->addChild(child);
+
+		MinMaxResult maxRes = maximize(child, podRole, alpha, beta);
 
 		if (maxRes.evaluationValue < res.evaluationValue) {
 			res = maxRes;
@@ -1663,7 +1716,6 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 	}
 
 	return res;
-
 }
 
 //*************************************************************************************************************
@@ -1744,6 +1796,97 @@ int Minimax::evaluateHunterrState(State* state) const {
 	}
 
 	return evalValue;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Minimax::debugEval(const string& nodePath) const {
+	int rInt = 0;
+
+	if ("%AAAA" == nodePath) { rInt = 41; }
+	else if ("%AAAB" == nodePath) { rInt = 67; }
+	else if ("%AAAC" == nodePath) { rInt = 34; }
+	else if ("%AABA" == nodePath) { rInt = 0; }
+	else if ("%AABB" == nodePath) { rInt = 69; }
+	else if ("%AABC" == nodePath) { rInt = 24; }
+	else if ("%AACA" == nodePath) { rInt = 78; }
+	else if ("%AACB" == nodePath) { rInt = 58; }
+	else if ("%AACC" == nodePath) { rInt = 62; }
+	else if ("%ABAA" == nodePath) { rInt = 64; }
+	else if ("%ABAB" == nodePath) { rInt = 5; }
+	else if ("%ABAC" == nodePath) { rInt = 45; }
+	else if ("%ABBA" == nodePath) { rInt = 81; }
+	else if ("%ABBB" == nodePath) { rInt = 27; }
+	else if ("%ABBC" == nodePath) { rInt = 61; }
+	else if ("%ABCA" == nodePath) { rInt = 91; }
+	else if ("%ABCB" == nodePath) { rInt = 95; }
+	else if ("%ABCC" == nodePath) { rInt = 42; }
+	else if ("%ACAA" == nodePath) { rInt = 27; }
+	else if ("%ACAB" == nodePath) { rInt = 36; }
+	else if ("%ACAC" == nodePath) { rInt = 91; }
+	else if ("%ACBA" == nodePath) { rInt = 4; }
+	else if ("%ACBB" == nodePath) { rInt = 2; }
+	else if ("%ACBC" == nodePath) { rInt = 53; }
+	else if ("%ACCA" == nodePath) { rInt = 92; }
+	else if ("%ACCB" == nodePath) { rInt = 82; }
+	else if ("%ACCC" == nodePath) { rInt = 21; }
+	else if ("%BAAA" == nodePath) { rInt = 16; }
+	else if ("%BAAB" == nodePath) { rInt = 18; }
+	else if ("%BAAC" == nodePath) { rInt = 95; }
+	else if ("%BABA" == nodePath) { rInt = 47; }
+	else if ("%BABB" == nodePath) { rInt = 26; }
+	else if ("%BABC" == nodePath) { rInt = 71; }
+	else if ("%BACA" == nodePath) { rInt = 38; }
+	else if ("%BACB" == nodePath) { rInt = 69; }
+	else if ("%BACC" == nodePath) { rInt = 12; }
+	else if ("%BBAA" == nodePath) { rInt = 67; }
+	else if ("%BBAB" == nodePath) { rInt = 99; }
+	else if ("%BBAC" == nodePath) { rInt = 35; }
+	else if ("%BBBA" == nodePath) { rInt = 94; }
+	else if ("%BBBB" == nodePath) { rInt = 3; }
+	else if ("%BBBC" == nodePath) { rInt = 11; }
+	else if ("%BBCA" == nodePath) { rInt = 22; }
+	else if ("%BBCB" == nodePath) { rInt = 33; }
+	else if ("%BBCC" == nodePath) { rInt = 73; }
+	else if ("%BCAA" == nodePath) { rInt = 64; }
+	else if ("%BCAB" == nodePath) { rInt = 41; }
+	else if ("%BCAC" == nodePath) { rInt = 11; }
+	else if ("%BCBA" == nodePath) { rInt = 53; }
+	else if ("%BCBB" == nodePath) { rInt = 68; }
+	else if ("%BCBC" == nodePath) { rInt = 47; }
+	else if ("%BCCA" == nodePath) { rInt = 44; }
+	else if ("%BCCB" == nodePath) { rInt = 62; }
+	else if ("%BCCC" == nodePath) { rInt = 57; }
+	else if ("%CAAA" == nodePath) { rInt = 37; }
+	else if ("%CAAB" == nodePath) { rInt = 59; }
+	else if ("%CAAC" == nodePath) { rInt = 23; }
+	else if ("%CABA" == nodePath) { rInt = 41; }
+	else if ("%CABB" == nodePath) { rInt = 29; }
+	else if ("%CABC" == nodePath) { rInt = 78; }
+	else if ("%CACA" == nodePath) { rInt = 16; }
+	else if ("%CACB" == nodePath) { rInt = 35; }
+	else if ("%CACC" == nodePath) { rInt = 90; }
+	else if ("%CBAA" == nodePath) { rInt = 42; }
+	else if ("%CBAB" == nodePath) { rInt = 88; }
+	else if ("%CBAC" == nodePath) { rInt = 6; }
+	else if ("%CBBA" == nodePath) { rInt = 40; }
+	else if ("%CBBB" == nodePath) { rInt = 42; }
+	else if ("%CBBC" == nodePath) { rInt = 64; }
+	else if ("%CBCA" == nodePath) { rInt = 48; }
+	else if ("%CBCB" == nodePath) { rInt = 46; }
+	else if ("%CBCC" == nodePath) { rInt = 5; }
+	else if ("%CCAA" == nodePath) { rInt = 90; }
+	else if ("%CCAB" == nodePath) { rInt = 29; }
+	else if ("%CCAC" == nodePath) { rInt = 70; }
+	else if ("%CCBA" == nodePath) { rInt = 50; }
+	else if ("%CCBB" == nodePath) { rInt = 6; }
+	else if ("%CCBC" == nodePath) { rInt = 1; }
+	else if ("%CCCA" == nodePath) { rInt = 93; }
+	else if ("%CCCB" == nodePath) { rInt = 48; }
+	else if ("%CCCC" == nodePath) { rInt = 29; }
+
+	return rInt;
 }
 
 //-------------------------------------------------------------------------------------------------------------
