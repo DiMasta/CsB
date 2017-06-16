@@ -1682,13 +1682,13 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 			res = minRes;
 		}
 
-		//if (minRes.evaluationValue >= beta) {
-		//	break;
-		//}
-		//
-		//if (minRes.evaluationValue > alpha) {
-		//	alpha = minRes.evaluationValue;
-		//}
+		if (minRes.evaluationValue >= beta) {
+			break;
+		}
+
+		if (minRes.evaluationValue > alpha) {
+			alpha = minRes.evaluationValue;
+		}
 	}
 
 	return res;
@@ -1710,9 +1710,9 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 			res = maxRes;
 		}
 
-		//if (maxRes.evaluationValue < beta) {
-		//	beta = maxRes.evaluationValue;
-		//}
+		if (maxRes.evaluationValue < beta) {
+			beta = maxRes.evaluationValue;
+		}
 	}
 
 	return res;
