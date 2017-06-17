@@ -46,6 +46,11 @@ const int LAPS_COUNT = 3;
 const int PASSED_CPS_WEIGHT = 5000;
 const int DIST_TO_NEXT_CP_WEIGHT = 3;
 const int ANGLE_TO_NEXT_CP_WEIGHT = 200;
+const int DIST_TO_HUNTER_WEIGHT = 5;
+const int ANGLE_HUNTER_WEIGHT = 100;
+
+const int ENEMY_DIST_TO_NEXT_CP_WEIGHT = 200;
+const int ENEMY_ANGLE_TO_NEXT_CP_WEIGHT = 1500;
 
 const string SHEILD = "SHEILD";
 const string BOOST = "BOOST";
@@ -1741,6 +1746,7 @@ int Minimax::evaluateRunnerState(State* state) const {
 	int evalValue = 0;
 
 	Pod* runner = state->getPodByRole(PR_MY_RUNNER);
+	Pod* hunter = state->getPodByRole(PR_ENEMY_HUNTER);
 	int passedCheckPoints = runner->getPassedCheckPoints();
 	int cpsToWin = LAPS_COUNT * state->getCheckPointsCount();
 
@@ -1756,11 +1762,15 @@ int Minimax::evaluateRunnerState(State* state) const {
 		Coords nextCpPosition = nextCp->getPosition();
 		int distToNextCp = (int)runner->getPosition().distance(nextCpPosition);
 		int angleToNextCp = (int)runner->calcAngleToTarget(nextCpPosition);
+		int distToHunter = (int)runner->getPosition().distance(hunter->getPosition());
+		int angleToHunter = (int)runner->calcAngleToTarget(hunter->getPosition());
 
 		evalValue =
 			(PASSED_CPS_WEIGHT * passedCheckPoints) -
 			(DIST_TO_NEXT_CP_WEIGHT * distToNextCp) -
-			(ANGLE_TO_NEXT_CP_WEIGHT * angleToNextCp);
+			(ANGLE_TO_NEXT_CP_WEIGHT * angleToNextCp) +
+			(DIST_TO_HUNTER_WEIGHT * distToHunter) +
+			(ANGLE_HUNTER_WEIGHT * angleToHunter);
 	}
 
 	return evalValue;
@@ -1773,26 +1783,30 @@ int Minimax::evaluateHunterrState(State* state) const {
 	int evalValue = 0;
 
 	Pod* hunter = state->getPodByRole(PR_MY_HUNTER);
-	int passedCheckPoints = hunter->getPassedCheckPoints();
+	Pod* runner = state->getPodByRole(PR_ENEMY_RUNNER);
+	int passedCheckPoints = runner->getPassedCheckPoints();
 	int cpsToWin = LAPS_COUNT * state->getCheckPointsCount();
 
 	if (passedCheckPoints >= cpsToWin) {
-		evalValue = INT_MAX;
-	}
-	else if (hunter->getTurnsLeft() <= 0) {
 		evalValue = INT_MIN;
 	}
+	else if (runner->getTurnsLeft() <= 0) {
+		evalValue = INT_MAX;
+	}
 	else {
-		int nextCpId = hunter->getNextCheckPointId();
+		int nextCpId = runner->getNextCheckPointId();
 		CheckPoint* nextCp = state->getCheckPoint(nextCpId);
 		Coords nextCpPosition = nextCp->getPosition();
-		int distToNextCp = (int)hunter->getPosition().distance(nextCpPosition);
-		int angleToNextCp = (int)hunter->calcAngleToTarget(nextCpPosition);
+		int distToNextCp = (int)runner->getPosition().distance(nextCpPosition);
+		int angleToNextCp = (int)runner->calcAngleToTarget(nextCpPosition);
+		int distToHunter = (int)runner->getPosition().distance(hunter->getPosition());
+		int angleToHunter = (int)runner->calcAngleToTarget(hunter->getPosition());
 
 		evalValue =
-			(PASSED_CPS_WEIGHT * passedCheckPoints) -
-			(DIST_TO_NEXT_CP_WEIGHT * distToNextCp) -
-			(ANGLE_TO_NEXT_CP_WEIGHT * angleToNextCp);
+			(ENEMY_DIST_TO_NEXT_CP_WEIGHT * distToNextCp) +
+			(ENEMY_ANGLE_TO_NEXT_CP_WEIGHT * angleToNextCp) -
+			(DIST_TO_HUNTER_WEIGHT * distToHunter) -
+			(ANGLE_HUNTER_WEIGHT * angleToHunter);
 	}
 
 	return evalValue;
@@ -2058,8 +2072,9 @@ void Game::getTurnInput() {
 
 		if (lastTurnPodsGoalCPs[podIdx] != podNextCheckPointId) {
 			pods[podIdx]->incrementPassedCPCounter();
+			pods[podIdx]->resetCPCounter();
 		}
-		else {
+		else if (FIRST_TURN != turnsCount){
 			pods[podIdx]->decreaseTuensLeft();
 		}
 
