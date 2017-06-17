@@ -38,6 +38,7 @@ const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
+const int FIRST_GOAL_CP_ID = 1;
 
 const int MINIMAX_DEPTH = 4;
 const int LAPS_COUNT = 3;
@@ -286,6 +287,8 @@ public:
 	CheckPoint(Coords position, Coords speedVector, int radius, int id);
 	~CheckPoint();
 
+	int getId() const { return id; }
+
 	void setId(int id) { this->id = id; }
 
 	void debug() const override;
@@ -373,6 +376,8 @@ public:
 	float clampAngle(float angleToClamp) const;
 	Coords calcPodTarget(PodDirection podDirection);
 	void initActions();
+	void incrementPassedCPCounter();
+	void decreaseTuensLeft();
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -568,63 +573,54 @@ float Pod::truncate(float toTruncate) {
 //*************************************************************************************************************
 
 void Pod::computeBounce(Entity* entity) {
-	if (dynamic_cast<CheckPoint*>(entity) != NULL) {
-		// May be here is good to check if the CP is the next CP id
+	// If a pod has its shield active its mass is 10 otherwise it's 1
+	float m1 = sheildOn() ? MASS_WITH_SHEILD : MASS_WITHOUT_SHEILD;
+	float m2 = entity->sheildOn() ? MASS_WITH_SHEILD : MASS_WITHOUT_SHEILD;
+	float mcoeff = (m1 + m2) / (m1 * m2);
 
-		// Collision with a checkpoint
-		resetCPCounter();
-		++passedCheckPoints;
+	float nx = position.xCoord - entity->getPosition().xCoord;
+	float ny = position.yCoord - entity->getPosition().yCoord;
+
+	// Square of the distance between the 2 pods. This value could be hardcoded because it is always 800
+	float nxnysquare = nx * nx + ny * ny;
+
+	float dvx = speedVector.xCoord - entity->getSpeedVector().xCoord;
+	float dvy = speedVector.yCoord - entity->getSpeedVector().yCoord;
+
+	// fx and fy are the components of the impact vector. product is just there for optimisation purposes
+	float product = nx * dvx + ny * dvy;
+	float fx = (nx * product) / (nxnysquare * mcoeff);
+	float fy = (ny * product) / (nxnysquare * mcoeff);
+
+	// We apply the impact vector once
+	speedVector.xCoord -= fx / m1;
+	speedVector.yCoord -= fy / m1;
+	entity->setSpeedVector(
+		Coords(
+			entity->getSpeedVector().xCoord + fx / m2,
+			entity->getSpeedVector().yCoord + fy / m2
+		)
+	);
+
+	// If the norm of the impact vector is less than 120, we normalize it to 120
+	float impulse = sqrt(fx*fx + fy*fy);
+	if (impulse < HALF_MOMENTUM) {
+		fx = fx * HALF_MOMENTUM / impulse;
+		fy = fy * HALF_MOMENTUM / impulse;
 	}
-	else {
-		// If a pod has its shield active its mass is 10 otherwise it's 1
-		float m1 = sheildOn() ? MASS_WITH_SHEILD : MASS_WITHOUT_SHEILD;
-		float m2 = entity->sheildOn() ? MASS_WITH_SHEILD : MASS_WITHOUT_SHEILD;
-		float mcoeff = (m1 + m2) / (m1 * m2);
 
-		float nx = position.xCoord - entity->getPosition().xCoord;
-		float ny = position.yCoord - entity->getPosition().yCoord;
+	// We apply the impact vector a second time
+	speedVector.xCoord -= fx / m1;
+	speedVector.yCoord -= fy / m1;
+	entity->setSpeedVector(
+		Coords(
+			entity->getSpeedVector().xCoord + fx / m2,
+			entity->getSpeedVector().yCoord + fy / m2
+		)
+	);
 
-		// Square of the distance between the 2 pods. This value could be hardcoded because it is always 800
-		float nxnysquare = nx * nx + ny * ny;
-
-		float dvx = speedVector.xCoord - entity->getSpeedVector().xCoord;
-		float dvy = speedVector.yCoord - entity->getSpeedVector().yCoord;
-
-		// fx and fy are the components of the impact vector. product is just there for optimisation purposes
-		float product = nx * dvx + ny * dvy;
-		float fx = (nx * product) / (nxnysquare * mcoeff);
-		float fy = (ny * product) / (nxnysquare * mcoeff);
-
-		// We apply the impact vector once
-		speedVector.xCoord -= fx / m1;
-		speedVector.yCoord -= fy / m1;
-		entity->setSpeedVector(
-			Coords(
-				entity->getSpeedVector().xCoord + fx / m2,
-				entity->getSpeedVector().yCoord + fy / m2
-			)
-		);
-
-		// If the norm of the impact vector is less than 120, we normalize it to 120
-		float impulse = sqrt(fx*fx + fy*fy);
-		if (impulse < HALF_MOMENTUM) {
-			fx = fx * HALF_MOMENTUM / impulse;
-			fy = fy * HALF_MOMENTUM / impulse;
-		}
-
-		// We apply the impact vector a second time
-		speedVector.xCoord -= fx / m1;
-		speedVector.yCoord -= fy / m1;
-		entity->setSpeedVector(
-			Coords(
-				entity->getSpeedVector().xCoord + fx / m2,
-				entity->getSpeedVector().yCoord + fy / m2
-			)
-		);
-
-		// This is one of the rare places where a Vector class would have made the code more readable.
-		// But this place is called so often that I can't pay a performance price to make it more readable.
-	}
+	// This is one of the rare places where a Vector class would have made the code more readable.
+	// But this place is called so often that I can't pay a performance price to make it more readable.
 }
 
 //*************************************************************************************************************
@@ -716,6 +712,20 @@ void Pod::initActions() {
 	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
 		turnActions[actionIdx] = Action();
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::incrementPassedCPCounter() {
+	++passedCheckPoints;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::decreaseTuensLeft() {
+	--turnsLeft;
 }
 
 //*************************************************************************************************************
@@ -838,6 +848,7 @@ public:
 	bool isTerminal() const;
 	void generatePodsTurnActions();
 	void turnEnd();
+	void computeCheckPointCollision(Pod* pod, CheckPoint* checkPoint);
 
 	void debug() const;
 
@@ -1104,8 +1115,15 @@ void State::movePods() {
 				pods[i]->move(firstCollision->getCollisinTurnTime());
 			}
 
-			// Play out the collision
-			firstCollision->getEntityA()->computeBounce(firstCollision->getEntityB());
+			CheckPoint* checkPoint = dynamic_cast<CheckPoint*>(firstCollision->getEntityB());
+			Pod* pod = dynamic_cast<Pod*>(firstCollision->getEntityA());
+			if (pod && checkPoint) {
+				computeCheckPointCollision(pod, checkPoint);
+			}
+			else {
+				// Play out the collision
+				firstCollision->getEntityA()->computeBounce(firstCollision->getEntityB());
+			}
 
 			t += firstCollision->getCollisinTurnTime();
 		}
@@ -1194,6 +1212,20 @@ void State::generatePodsTurnActions() {
 //*************************************************************************************************************
 
 void State::turnEnd() {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::computeCheckPointCollision(Pod* pod, CheckPoint* checkPoint) {
+	const int nextCPId =  pod->getNextCheckPointId();
+	const int collisionCPId = checkPoint->getId();
+
+	// If the collision is not with the next checkpoint nothing happens
+	if (nextCPId == collisionCPId) {
+		pod->resetCPCounter();
+		pod->incrementPassedCPCounter();
+	}
 }
 
 //*************************************************************************************************************
@@ -1849,12 +1881,11 @@ private:
 	int turnsCount;
 	int lapsCount;
 	int checkPointsCount;
+	int lastTurnPodsGoalCPs[GAME_PODS_COUNT];
 	CheckPoint** checkPoints;
 	State* turnState;
-
 	State* myRunnerSubState;
 	State* myHunterSubState;
-
 	Minimax* minimax;
 };
 
@@ -1871,6 +1902,9 @@ Game::Game() :
 	myHunterSubState(NULL),
 	minimax(NULL)
 {
+	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
+		lastTurnPodsGoalCPs[podIdx] = FIRST_GOAL_CP_ID;
+	}
 }
 
 //*************************************************************************************************************
@@ -1984,6 +2018,13 @@ void Game::getTurnInput() {
 		pods[podIdx]->setAngle((float)podAngle);
 		pods[podIdx]->setNextCheckPointId(podNextCheckPointId);
 
+		if (lastTurnPodsGoalCPs[podIdx] != podNextCheckPointId) {
+			pods[podIdx]->incrementPassedCPCounter();
+		}
+		else {
+			pods[podIdx]->decreaseTuensLeft();
+		}
+
 		PodRole role = PR_MY_HUNTER;
 		if (podIdx >= TEAM_PODS_COUNT) {
 			role = PR_ENEMY_HUNTER;
@@ -2046,7 +2087,7 @@ void Game::play() {
 
 void Game::makeFirstTurn() const {
 	// Aim the two pods to the first CheckPoint
-	CheckPoint* firstCheckPoint = turnState->getCheckPoint(1);
+	CheckPoint* firstCheckPoint = turnState->getCheckPoint(FIRST_GOAL_CP_ID);
 	Coords firstCheckPointCoords = firstCheckPoint->getPosition();
 	cout << firstCheckPointCoords.xCoord << " " << firstCheckPointCoords.yCoord << " " << MAX_THRUST << endl;
 	cout << firstCheckPointCoords.xCoord << " " << firstCheckPointCoords.yCoord << " " << BOOST << endl;
