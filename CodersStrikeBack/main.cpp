@@ -1384,15 +1384,18 @@ Node* Node::createChild(MaximizeMinimize mm, int actionIdx) {
 
 	Action actionForChild = pod->getTurnAction(actionIdx);
 
-	// No need to change the state for MAX
 	child = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1, 'A' + actionIdx);
-	child->copyState(state);
 	child->setPathToNode();
 
-	if (MM_MINIMIZE == mm) {
+	if (MM_MAXIMIZE == mm) {
+		// No need to copy/change the state for MAX
+		child->setState(state);
+	}
+	else if (MM_MINIMIZE == mm) {
 		// If minimize I need to generate simulate state with action for the enemy pod and the action from the parent node for my pod
 		// Use child action and node action to simulate state for MIN
 		Action actionForSimulation[SUBSTATE_PODS_COUNT] = { action, actionForChild };
+		child->copyState(state);
 		child->getState()->simulateTurn(actionForSimulation);
 	}
 
