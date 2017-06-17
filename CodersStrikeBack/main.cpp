@@ -12,7 +12,7 @@
 
 using namespace std;
 
-const float INVALID_COORD = -1.f;
+const float INVALID_COORD = 0.f;
 const float MAX_ANGLE_PER_TURN = 18.f;
 const float DEFAULT_ANGLE = -1.f;
 const float FRICTION = .85f;
@@ -810,21 +810,23 @@ Collision::~Collision() {
 class State {
 public:
 	State();
-	State(int checkPointsCount, int podsCount);
+	State(int podsCount);
 	State(State* state);
 	State(State* state, PodRole role);
-	State(int podsCount, Pod** pods, int checkPointsCount, CheckPoint** checkPoints);
+	State(int podsCount, Pod** pods, CheckPoint** checkPoints);
 	~State();
 
 	Pod** getPods() const { return pods; }
-	int getCheckPointsCount() const { return checkPointsCount; }
 	CheckPoint** getCheckPoints() const { return checkPoints; }
 	Pod* getPod(int id) const { return pods[id]; }
 	CheckPoint* getCheckPoint(int id) const { return checkPoints[id]; }
 	int getPodsCount() const { return podsCount; }
+	int getCheckPointsCount() const { return checkPointsCount; }
 
-	void initState(int checkPointsCount, int podsCount);
-	void setCheckPointData(Coords postion, int id);
+	void setCheckPointsCount(int checkPointsCount) { this->checkPointsCount = checkPointsCount; }
+	void setCheckPoints(CheckPoint** checkPoints) { this->checkPoints = checkPoints; }
+
+	void initState(int podsCount);
 	void simulateTurn(Action* podActions);
 	Collision* checkForCollision(Entity* entityA, Entity* entityB) const;
 	void movePods();
@@ -838,7 +840,6 @@ public:
 	void turnEnd();
 
 	void debug() const;
-	void debugCheckPoints() const;
 
 private:
 	int podsCount;
@@ -851,47 +852,40 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-State::State() : podsCount(0), pods(NULL), checkPointsCount(0), checkPoints(NULL) {
+State::State() : podsCount(0), pods(NULL), checkPoints(NULL) {
 
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-State::State(int checkPointsCount, int podsCount) :
-	checkPointsCount(checkPointsCount),
+State::State(int podsCount) :
 	podsCount(podsCount)
 {
-	initState(checkPointsCount, podsCount);
+	initState(podsCount);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 State::State(State* state) {
-	int sourceCheckPointsCount = state->getCheckPointsCount();
-	int sourcePodsCount = state->getPodsCount();
-	initState(sourceCheckPointsCount, sourcePodsCount);
+	int sourcePodsCount = state->podsCount;
+	initState(sourcePodsCount);
 
 	for (int podIdx = 0; podIdx < sourcePodsCount; ++podIdx) {
 		memcpy(this->pods[podIdx], state->pods[podIdx], sizeof(Pod));
 	}
 
-	for (int cpIdx = 0; cpIdx < sourceCheckPointsCount; ++cpIdx) {
-		memcpy(this->checkPoints[cpIdx], state->checkPoints[cpIdx], sizeof(CheckPoint));
-	}
-
-	this->checkPointsCount = sourceCheckPointsCount;
 	this->podsCount = sourcePodsCount;
+	this->checkPointsCount = state->checkPointsCount;
+	this->checkPoints = state->checkPoints;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 State::State(State* state, PodRole role) {
-	int sourceCheckPointsCount = state->getCheckPointsCount();
-
-	initState(sourceCheckPointsCount, SUBSTATE_PODS_COUNT);
+	initState(SUBSTATE_PODS_COUNT);
 
 	int sourceMyPodIdx = INVALID_ID;
 	int sourceEnemyPodIdx = INVALID_ID;
@@ -909,21 +903,17 @@ State::State(State* state, PodRole role) {
 	memcpy(this->pods[TSPI_MY_POD_IDX], state->pods[sourceMyPodIdx], sizeof(Pod));
 	memcpy(this->pods[TSPI_ENEMY_POD_IDX], state->pods[sourceEnemyPodIdx], sizeof(Pod));
 
-	for (int cpIdx = 0; cpIdx < sourceCheckPointsCount; ++cpIdx) {
-		memcpy(this->checkPoints[cpIdx], state->checkPoints[cpIdx], sizeof(CheckPoint));
-	}
-
-	this->checkPointsCount = sourceCheckPointsCount;
 	this->podsCount = SUBSTATE_PODS_COUNT;
+	this->checkPointsCount = state->checkPointsCount;
+	this->checkPoints = state->checkPoints;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-State::State(int podsCount, Pod** pods, int checkPointsCount, CheckPoint** checkPoints) :
+State::State(int podsCount, Pod** pods, CheckPoint** checkPoints) :
 	podsCount(podsCount),
 	pods(pods),
-	checkPointsCount(checkPointsCount),
 	checkPoints(checkPoints)
 {
 }
@@ -941,40 +931,16 @@ State::~State() {
 		delete[] pods;
 		pods = NULL;
 	}
-
-	if (checkPoints) {
-		for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
-			delete checkPoints[cpIdx];
-			checkPoints[cpIdx] = NULL;
-		}
-
-		delete[] checkPoints;
-		checkPoints = NULL;
-	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void State::initState(int checkPointsCount, int podsCount) {
+void State::initState(int podsCount) {
 	pods = new Pod*[podsCount];
 	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
 		pods[podIdx] = new Pod();
 	}
-
-	checkPoints = new CheckPoint*[checkPointsCount];
-	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
-		checkPoints[cpIdx] = new CheckPoint();
-	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void State::setCheckPointData(Coords postion, int id) {
-	checkPoints[id]->setPosition(postion);
-	checkPoints[id]->setId(id);
-	checkPoints[id]->setSpeedVector(Coords(0.f, 0.f));
 }
 
 //*************************************************************************************************************
@@ -1266,15 +1232,6 @@ void State::debug() const {
 	}
 }
 
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void State::debugCheckPoints() const {
-	for (int checkPointIdx = 0; checkPointIdx < checkPointsCount; ++checkPointIdx) {
-		checkPoints[checkPointIdx]->debug();
-	}
-}
-
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -1310,7 +1267,6 @@ public:
 
 	void addChild(Node* newChild);
 	Node* createChild(MaximizeMinimize mm, int actionIdx);
-	void createChildren(MaximizeMinimize mm);
 	void deleteChildren();
 	Node* getChildI(int i);
 	void copyState(State* state);
@@ -1441,39 +1397,6 @@ Node* Node::createChild(MaximizeMinimize mm, int actionIdx) {
 	}
 
 	return child;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Node::createChildren(MaximizeMinimize mm) {
-	Pod* pod = NULL;
-	
-	if (MM_MAXIMIZE == mm) {
-		pod = state->getPod(TSPI_MY_POD_IDX);
-	}
-	else if (MM_MINIMIZE == mm) {
-		pod = state->getPod(TSPI_ENEMY_POD_IDX);
-	}
-
-	children = new Node*[POD_ACTIONS_COUNT];
-	childrenCount = POD_ACTIONS_COUNT;
-
-	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
-		Action actionForChild = pod->getTurnAction(actionIdx);
-
-		// No need to change the state for MAX
-		children[actionIdx] = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1, 'A' + actionIdx);
-		children[actionIdx]->copyState(state);
-		children[actionIdx]->setPathToNode();
-		
-		if (MM_MINIMIZE == mm) {
-			// If minimize I need to generate simulate state with action for the enemy pod and the action from the parent node for my pod
-			// Use child action and node action to simulate state for MIN
-			Action actionForSimulation[SUBSTATE_PODS_COUNT] = {action, actionForChild};
-			children[actionIdx]->getState()->simulateTurn(actionForSimulation);
-		}
-	}
 }
 
 //*************************************************************************************************************
@@ -1917,10 +1840,13 @@ public:
 	void clearSubStates();
 
 	void debug() const;
+	void debugCheckPoints() const;
 
 private:
 	int turnsCount;
 	int lapsCount;
+	int checkPointsCount;
+	CheckPoint** checkPoints;
 	State* turnState;
 
 	State* myRunnerSubState;
@@ -1935,6 +1861,8 @@ private:
 Game::Game() :
 	turnsCount(0),
 	lapsCount(0),
+	checkPointsCount(0),
+	checkPoints(NULL),
 	turnState(NULL),
 	myRunnerSubState(NULL),
 	myHunterSubState(NULL),
@@ -1957,12 +1885,23 @@ Game::~Game() {
 	}
 
 	clearSubStates();
+
+	if (checkPoints) {
+		for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
+			delete checkPoints[cpIdx];
+			checkPoints[cpIdx] = NULL;
+		}
+
+		delete[] checkPoints;
+		checkPoints = NULL;
+	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::initGame() {
+	turnState = new State(GAME_PODS_COUNT);
 }
 
 //*************************************************************************************************************
@@ -1990,12 +1929,11 @@ void Game::getGameInput() {
 	lapsCount = 3; // Profiling
 	//cerr << lapsCount << endl;
 
-	int checkPointsCount;
 	//cin >> checkPointsCount;
 	checkPointsCount = 4; // Profiling
 	//cerr << checkPointsCount << endl;
 
-	turnState = new State(checkPointsCount, GAME_PODS_COUNT);
+	checkPoints = new CheckPoint*[checkPointsCount];
 
 	int checkPointXCoord;
 	int checkPointYCoord;
@@ -2008,8 +1946,11 @@ void Game::getGameInput() {
 		//cin >> checkPointYCoord;
 		//cerr << checkPointXCoord << " " << checkPointYCoord << endl;
 
-		turnState->setCheckPointData(Coords((float)checkPointXCoord, (float)checkPointYCoord), cpIdx);
+		checkPoints[cpIdx] = new CheckPoint(Coords((float)checkPointXCoord, (float)checkPointYCoord), Coords(), CHECKPOINT_RADIUS, cpIdx);
 	}
+
+	turnState->setCheckPointsCount(checkPointsCount);
+	turnState->setCheckPoints(checkPoints);
 }
 
 //*************************************************************************************************************
@@ -2145,6 +2086,15 @@ void Game::clearSubStates() {
 
 void Game::debug() const {
 	turnState->debug();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Game::debugCheckPoints() const {
+	for (int checkPointIdx = 0; checkPointIdx < checkPointsCount; ++checkPointIdx) {
+		checkPoints[checkPointIdx]->debug();
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------
