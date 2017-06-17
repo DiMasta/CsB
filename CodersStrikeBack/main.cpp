@@ -841,8 +841,10 @@ public:
 	Collision* checkForCollision(Entity* entityA, Entity* entityB) const;
 	void movePods();
 	bool compareCollisions(Collision* collisionA, Collision* collisoionB) const;
+	void assignRunerRole(PodRole runnerRole, PodRole hunterRole);
 	void assignRoles();
 	Pod* getPodByRole(PodRole role) const;
+	Pod* getHunterWithMostCPs(PodRole hunterRole) const;
 	Pod* getClosestToCPHunter(PodRole role) const;
 	int getRolePodIdx(PodRole role) const;
 	bool isTerminal() const;
@@ -1231,12 +1233,23 @@ void State::computeCheckPointCollision(Pod* pod, CheckPoint* checkPoint) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void State::assignRoles() {
-	Pod* myRunner = getClosestToCPHunter(PR_MY_HUNTER);
-	Pod* enemyRunner = getClosestToCPHunter(PR_ENEMY_HUNTER);
+void State::assignRunerRole(PodRole runnerRole, PodRole hunterRole) {
+	Pod* runner = getHunterWithMostCPs(hunterRole);
 
-	myRunner->setRole(PR_MY_RUNNER);
-	enemyRunner->setRole(PR_ENEMY_RUNNER);
+	// If the hunters are with equal checkPoints passed
+	if (!runner) {
+		runner = getClosestToCPHunter(hunterRole);
+	}
+
+	runner->setRole(runnerRole);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::assignRoles() {
+	assignRunerRole(PR_MY_RUNNER, PR_MY_HUNTER);
+	assignRunerRole(PR_ENEMY_RUNNER, PR_ENEMY_HUNTER);
 }
 
 //*************************************************************************************************************
@@ -1249,6 +1262,31 @@ Pod* State::getPodByRole(PodRole role) const {
 		if (pods[podIdx]->getRole() == role) {
 			pod = pods[podIdx];
 			break;
+		}
+	}
+
+	return pod;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Pod* State::getHunterWithMostCPs(PodRole hunterRole) const {
+	Pod* pod = NULL;
+	int maxCPs = INT_MIN;
+
+	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
+		if (pods[podIdx]->getRole() == hunterRole) {
+			int podsCPs = pods[podIdx]->getPassedCheckPoints();
+
+			// Two pods have same CPs
+			if (podsCPs == maxCPs) {
+				pod = NULL;
+			}
+			else if (podsCPs > maxCPs) {
+				maxCPs = podsCPs;
+				pod = pods[podIdx];
+			}
 		}
 	}
 
