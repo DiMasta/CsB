@@ -1664,6 +1664,7 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node->getState(), podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
+
 		return res;
 
 		//int rInt = debugEval(node->getPathToNode());
@@ -2007,7 +2008,8 @@ void Game::gameLoop() {
 		turnEnd();
 
 		clock_t end = clock();
-		double elapsedMilliSecs = double(end - begin) / (CLOCKS_PER_SEC / 1000);
+		double elapsedMilliSecs = double(end - begin);
+
 		cerr << endl;
 		cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
 		cerr << endl;
@@ -2033,8 +2035,7 @@ void Game::getGameInput() {
 
 	checkPoints = new CheckPoint*[checkPointsCount];
 
-	int checkPointXCoord;
-	int checkPointYCoord;
+	int checkPointXCoord, checkPointYCoord;
 	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
 		if (0 == cpIdx) { checkPointXCoord = 7982; checkPointYCoord = 7873; }
 		if (1 == cpIdx) { checkPointXCoord = 13284; checkPointYCoord = 5513; }
