@@ -7,6 +7,7 @@
 #include <string.h>
 #include <math.h>
 #include <climits>
+#include <ctime>
 
 #define M_PI 3.14159265358979323846
 
@@ -1612,7 +1613,7 @@ Action Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
 	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX);
 
-	//cout << minimaxRes.bestLeaveNode->getPathToNode() << endl;
+	cout << minimaxRes.bestLeaveNode->getPathToNode() << endl;
 
 	return backtrack(minimaxRes.bestLeaveNode);
 }
@@ -1998,15 +1999,23 @@ void Game::initGame() {
 
 void Game::gameLoop() {
 	while (true) {
+		clock_t begin = clock();
+
 		getTurnInput();
 		turnBegin();
 		makeTurn();
 		turnEnd();
 
+		clock_t end = clock();
+		double elapsedMilliSecs = double(end - begin) / (CLOCKS_PER_SEC / 1000);
+		cerr << endl;
+		cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
+		cerr << endl;
+
 		// Profiling
-		//if (2 == turnsCount) {
-		//	break;
-		//}
+		if (2 == turnsCount) {
+			break;
+		}
 	}
 }
 
@@ -2014,12 +2023,12 @@ void Game::gameLoop() {
 //*************************************************************************************************************
 
 void Game::getGameInput() {
-	cin >> lapsCount;
-	//lapsCount = 3; // Profiling
+	//cin >> lapsCount;
+	lapsCount = 3; // Profiling
 	//cerr << lapsCount << endl;
 
-	cin >> checkPointsCount;
-	//checkPointsCount = 4; // Profiling
+	//cin >> checkPointsCount;
+	checkPointsCount = 4; // Profiling
 	//cerr << checkPointsCount << endl;
 
 	checkPoints = new CheckPoint*[checkPointsCount];
@@ -2027,12 +2036,11 @@ void Game::getGameInput() {
 	int checkPointXCoord;
 	int checkPointYCoord;
 	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
-		//if (0 == cpIdx) { checkPointXCoord = 7982; checkPointYCoord = 7873; }
-		//if (1 == cpIdx) { checkPointXCoord = 13284; checkPointYCoord = 5513; }
-		//if (2 == cpIdx) { checkPointXCoord = 9539; checkPointYCoord = 1380; }
-		//if (3 == cpIdx) { checkPointXCoord = 3637; checkPointYCoord = 7873; }
-		cin >> checkPointXCoord;
-		cin >> checkPointYCoord;
+		if (0 == cpIdx) { checkPointXCoord = 7982; checkPointYCoord = 7873; }
+		if (1 == cpIdx) { checkPointXCoord = 13284; checkPointYCoord = 5513; }
+		if (2 == cpIdx) { checkPointXCoord = 9539; checkPointYCoord = 1380; }
+		if (3 == cpIdx) { checkPointXCoord = 3637; checkPointYCoord = 7873; }
+		//cin >> checkPointXCoord >> checkPointYCoord;
 		//cerr << checkPointXCoord << " " << checkPointYCoord << endl;
 
 		checkPoints[cpIdx] = new CheckPoint(Coords((float)checkPointXCoord, (float)checkPointYCoord), Coords(), CHECKPOINT_RADIUS, cpIdx);
@@ -2049,19 +2057,19 @@ void Game::getTurnInput() {
 	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
 
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
-		//if (FIRST_TURN == turnsCount) {
-		//	if (0 == podIdx) { podXCoord = 7779; podYCoord = 7416; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-		//	if (1 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-		//	if (2 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-		//	if (3 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-		//}
-		//else {
-		//	if (0 == podIdx) { podXCoord = 7874; podYCoord = 7383; podVx = 80; podVy = -27; podAngle = 341; podNextCheckPointId = 1; }
-		//	if (1 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
-		//	if (2 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
-		//	if (3 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
-		//}
-		cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
+		if (FIRST_TURN == turnsCount) {
+			if (0 == podIdx) { podXCoord = 7779; podYCoord = 7416; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (1 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (2 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			if (3 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+		}
+		else {
+			if (0 == podIdx) { podXCoord = 7874; podYCoord = 7383; podVx = 80; podVy = -27; podAngle = 341; podNextCheckPointId = 1; }
+			if (1 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
+			if (2 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
+			if (3 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
+		}
+		//cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
 		//cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
 
 		Pod** pods = turnState->getPods();
