@@ -10,7 +10,7 @@
 #include <ctime>
 
 #define M_PI 3.14159265358979323846
-#define TESTS
+//#define TESTS
 
 using namespace std;
 
@@ -1637,7 +1637,7 @@ Action Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
 	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX);
 
-	//cout << minimaxRes.bestLeaveNode->getPathToNode() << endl;
+	//cerr << minimaxRes.bestLeaveNode->getPathToNode() << endl;
 
 	return backtrack(minimaxRes.bestLeaveNode);
 }
@@ -1646,7 +1646,7 @@ Action Minimax::run(State* state, PodRole podRole) {
 //*************************************************************************************************************
 
 Action Minimax::backtrack(Node* node) const {
-	cerr << "LEAVE NODE: " << node->getPathToNode() << endl;
+	//cerr << "LEAVE NODE: " << node->getPathToNode() << endl;
 
 	Node* n = node;
 	Node* p = node->getParent();
@@ -2256,12 +2256,12 @@ void Game::debugCheckPoints() const {
 #endif // TESTS
 
 int main(int argc, char** argv) {
-	//Game game;
-	//game.play();
-
 #ifdef TESTS
 	doctest::Context context;
 	int res = context.run();
+#else
+	Game game;
+	game.play();
 #endif // TESTS
 
 	return 0;
@@ -2273,23 +2273,4 @@ seed = 681000254
 pod_per_player = 2
 pod_timeout = 100
 map = 7982 7873 13284 5513 9539 1380 3637 4405
-*/
-
-// Inpit
-/*
-3
-4
-7982 7873
-13284 5513
-9539 1380
-3637 4405
-7779 7416 0 0 -1 1
-8185 8330 0 0 -1 1
-7372 6503 0 0 -1 1
-8592 9243 0 0 -1 1
-7874 7383 80 -27 341 1
-8754 8016 483 -267 331 1
-7471 6486 83 -14 350 1
-8670 9181 66 -52 322 1
-
 */
