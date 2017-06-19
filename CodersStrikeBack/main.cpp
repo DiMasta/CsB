@@ -37,9 +37,10 @@ const int INVALID_ID = -1;
 const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
-const int POD_ACTIONS_COUNT = 7;
-//const int POD_ACTIONS_COUNT = 3; // For debuging
+//const int POD_ACTIONS_COUNT = 7;
+const int POD_ACTIONS_COUNT = 5; // For debuging
 const int FIRST_GOAL_CP_ID = 1;
+const int USE_HARDCODED_INPUT = 0;
 
 const int MINIMAX_DEPTH = 6;
 const int LAPS_COUNT = 3;
@@ -99,6 +100,8 @@ struct Coords {
 	Coords() : xCoord(INVALID_COORD), yCoord(INVALID_COORD) {}
 	Coords(float xCoord, float yCoord) : xCoord(xCoord), yCoord(yCoord) {}
 
+	bool operator==(const Coords& coords) const;
+
 	float distanceSquare(Coords p) const;
 	float distance(Coords p) const;
 	Coords closestPointOnLine(Coords linePointA, Coords linePointB) const;
@@ -106,6 +109,13 @@ struct Coords {
 	float xCoord;
 	float yCoord;
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Coords::operator==(const Coords& coords) const {
+	return xCoord == coords.xCoord && yCoord == coords.yCoord;
+}
 
 //*************************************************************************************************************
 //*************************************************************************************************************
@@ -672,11 +682,17 @@ void Pod::generateTurnActions() {
 
 	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
 	turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
-	turnActions[2].fillAction(podLeftTarget, true, 0, AT_LEFT_SHEILD);
-	turnActions[3].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
-	turnActions[4].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
-	turnActions[5].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
-	turnActions[6].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+	turnActions[2].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
+	turnActions[3].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
+	turnActions[4].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+
+	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
+	//turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
+	//turnActions[2].fillAction(podLeftTarget, true, 0, AT_LEFT_SHEILD);
+	//turnActions[3].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
+	//turnActions[4].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
+	//turnActions[5].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
+	//turnActions[6].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
 }
 
 //*************************************************************************************************************
@@ -779,9 +795,16 @@ public:
 	Collision(Entity* entityA, Entity* entityB, float collisionTurnTime);
 	~Collision();
 
+	void setCollisionTurnTime(float collisionTurnTime) { this->collisionTurnTime = collisionTurnTime; }
+	void setEntityA(Entity* entityA) { this->entityA = entityA; }
+	void setEntityB(Entity* entityB) { this->entityB = entityB; }
+
+
 	float getCollisinTurnTime() const { return collisionTurnTime; }
 	Entity* getEntityA() const { return entityA; }
 	Entity* getEntityB() const { return entityB; }
+
+	bool isValid() const;
 private:
 	Entity* entityA;
 	Entity* entityB;
@@ -808,15 +831,13 @@ Collision::Collision(Entity* entityA, Entity* entityB, float collisionTurnTime) 
 //*************************************************************************************************************
 
 Collision::~Collision() {
-	if (entityA) {
-		delete entityA;
-		entityA = NULL;
-	}
+}
 
-	if (entityB) {
-		delete entityB;
-		entityB = NULL;
-	}
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Collision::isValid() const {
+	return entityA && entityB;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -844,7 +865,7 @@ public:
 
 	void initState(int podsCount);
 	void simulateTurn(Action* podActions);
-	Collision* checkForCollision(Entity* entityA, Entity* entityB) const;
+	Collision checkForCollision(Entity* entityA, Entity* entityB) const;
 	void movePods();
 	bool compareCollisions(Collision* collisionA, Collision* collisoionB) const;
 	void assignRunerRole(PodRole runnerRole, PodRole hunterRole);
@@ -994,7 +1015,8 @@ void State::simulateTurn(Action* podActions) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Collision* State::checkForCollision(Entity* entityA, Entity* entityB) const {
+Collision State::checkForCollision(Entity* entityA, Entity* entityB) const {
+
 	// Square of the distance
 	float dist = entityA->getPosition().distanceSquare(entityB->getPosition());
 
@@ -1004,15 +1026,15 @@ Collision* State::checkForCollision(Entity* entityA, Entity* entityB) const {
 	// We take everything squared to avoid calling sqrt uselessly. It is better for performances
 
 	if (dist < sr) {
-		// Objects are already touching each other. We have an immediate collision.
-		return new Collision(entityA, entityB, 0.0);
+		// Objects are already touching each other. We have an immediate collision.		
+		return Collision(entityA, entityB, 0.0);
 	}
 
 	// Optimisation. Objects with the same speed will never collide
 	if (entityA->getSpeedVector().xCoord == entityB->getSpeedVector().xCoord &&
 		entityA->getSpeedVector().yCoord == entityB->getSpeedVector().yCoord
 		) {
-		return NULL;
+		return Collision();
 	}
 
 	// We place ourselves in the reference frame of u. u is therefore stationary and is at (0,0)
@@ -1044,23 +1066,23 @@ Collision* State::checkForCollision(Entity* entityA, Entity* entityB) const {
 
 		// If the point is now further away it means we are not going the right way, therefore the collision won't happen
 		if (myp.distanceSquare(p) > mypdist) {
-			return NULL;
+			return Collision();
 		}
 
 		pdist = p.distance(myp);
 
 		// The point of impact is further than what we can travel in one turn
 		if (pdist > length) {
-			return NULL;
+			return Collision();
 		}
 
 		// Time needed to reach the impact point
 		float t = pdist / length;
 
-		return new Collision(entityA, entityB, t);
+		return Collision(entityA, entityB, t);
 	}
 
-	return NULL;
+	return Collision();
 }
 
 //*************************************************************************************************************
@@ -1070,24 +1092,23 @@ void State::movePods() {
 	// This tracks the time during the turn. The goal is to reach 1.0
 	float t = TURN_START_TIME;
 
-	Collision* previousCollision = NULL;
+	Collision previousCollision;
+	Collision firstCollision;
 
 	while (t < TURN_END_TIME) {
-		Collision* firstCollision = NULL;
-
 		// We look for all the collisions that are going to occur during the turn
 		for (int i = 0; i < podsCount; ++i) {
 			// Collision with another pod?
 			for (int j = i + 1; j < podsCount; ++j) {
-				Collision* col = checkForCollision(pods[i], pods[j]);
+				Collision col = checkForCollision(pods[i], pods[j]);
 
-				if (col && TURN_START_TIME == col->getCollisinTurnTime() && compareCollisions(previousCollision, col)) {
-					col = NULL;
+				if (col.isValid() && TURN_START_TIME == col.getCollisinTurnTime() && compareCollisions(&previousCollision, &col)) {
+					col = Collision();
 				}
 
 				// If the collision occurs earlier than the one we currently have we keep it
-				if (col != NULL && col->getCollisinTurnTime() + t < TURN_END_TIME &&
-					(firstCollision == NULL || col->getCollisinTurnTime() < firstCollision->getCollisinTurnTime())) {
+				if (col.isValid() && col.getCollisinTurnTime() + t < TURN_END_TIME &&
+					(!firstCollision.isValid() || col.getCollisinTurnTime() < firstCollision.getCollisinTurnTime())) {
 					firstCollision = col;
 				}
 			}
@@ -1095,20 +1116,20 @@ void State::movePods() {
 			// Collision with another checkpoint?
 			// It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
 			// We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
-			Collision* col = checkForCollision(pods[i], checkPoints[pods[i]->getNextCheckPointId()]);
+			Collision col = checkForCollision(pods[i], checkPoints[pods[i]->getNextCheckPointId()]);
 
-			if (col && TURN_START_TIME == col->getCollisinTurnTime() && compareCollisions(previousCollision, col)) {
-				col = NULL;
+			if (col.isValid() && previousCollision.isValid() && /*TURN_START_TIME == col->getCollisinTurnTime() &&*/ compareCollisions(&previousCollision, &col)) {
+				col = Collision();
 			}
 
 			// If the collision happens earlier than the current one we keep it
-			if (col != NULL && col->getCollisinTurnTime() + t < TURN_END_TIME &&
-				(firstCollision == NULL || col->getCollisinTurnTime() < firstCollision->getCollisinTurnTime())) {
+			if (col.isValid() && col.getCollisinTurnTime() + t < TURN_END_TIME &&
+				(!firstCollision.isValid() || col.getCollisinTurnTime() < firstCollision.getCollisinTurnTime())) {
 				firstCollision = col;
 			}
 		}
 
-		if (firstCollision == NULL) {
+		if (!firstCollision.isValid()) {
 			// No collision, we can move the pods until the end of the turn
 			for (int i = 0; i < podsCount; ++i) {
 				pods[i]->move(TURN_END_TIME - t);
@@ -1120,23 +1141,24 @@ void State::movePods() {
 		else {
 			// Move the pods to reach the time t of the collision
 			for (int i = 0; i < podsCount; ++i) {
-				pods[i]->move(firstCollision->getCollisinTurnTime());
+				pods[i]->move(firstCollision.getCollisinTurnTime());
 			}
 
-			CheckPoint* checkPoint = dynamic_cast<CheckPoint*>(firstCollision->getEntityB());
-			Pod* pod = dynamic_cast<Pod*>(firstCollision->getEntityA());
+			CheckPoint* checkPoint = dynamic_cast<CheckPoint*>(firstCollision.getEntityB());
+			Pod* pod = dynamic_cast<Pod*>(firstCollision.getEntityA());
 			if (pod && checkPoint) {
 				computeCheckPointCollision(pod, checkPoint);
 			}
 			else {
 				// Play out the collision
-				firstCollision->getEntityA()->computeBounce(firstCollision->getEntityB());
+				firstCollision.getEntityA()->computeBounce(firstCollision.getEntityB());
 			}
 
-			t += firstCollision->getCollisinTurnTime();
+			t += firstCollision.getCollisinTurnTime();
 		}
 
 		previousCollision = firstCollision;
+		firstCollision = Collision();
 	}
 
 }
@@ -1613,7 +1635,7 @@ Action Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
 	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX);
 
-	cout << minimaxRes.bestLeaveNode->getPathToNode() << endl;
+	//cout << minimaxRes.bestLeaveNode->getPathToNode() << endl;
 
 	return backtrack(minimaxRes.bestLeaveNode);
 }
@@ -1622,6 +1644,8 @@ Action Minimax::run(State* state, PodRole podRole) {
 //*************************************************************************************************************
 
 Action Minimax::backtrack(Node* node) const {
+	cerr << "LEAVE NODE: " << node->getPathToNode() << endl;
+
 	Node* n = node;
 	Node* p = node->getParent();
 
@@ -2000,23 +2024,25 @@ void Game::initGame() {
 
 void Game::gameLoop() {
 	while (true) {
-		clock_t begin = clock();
+		//clock_t begin = clock();
 
 		getTurnInput();
 		turnBegin();
 		makeTurn();
 		turnEnd();
 
-		clock_t end = clock();
-		double elapsedMilliSecs = double(end - begin);
+		//clock_t end = clock();
+		//double elapsedMilliSecs = double(end - begin);
+		//
+		//cerr << endl;
+		//cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
+		//cerr << endl;
 
-		cerr << endl;
-		cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
-		cerr << endl;
-
-		// Profiling
-		if (2 == turnsCount) {
-			break;
+		if (USE_HARDCODED_INPUT) {
+			// Profiling
+			if (2 == turnsCount) {
+				break;
+			}
 		}
 	}
 }
@@ -2025,24 +2051,31 @@ void Game::gameLoop() {
 //*************************************************************************************************************
 
 void Game::getGameInput() {
-	//cin >> lapsCount;
-	lapsCount = 3; // Profiling
-	//cerr << lapsCount << endl;
-
-	//cin >> checkPointsCount;
-	checkPointsCount = 4; // Profiling
-	//cerr << checkPointsCount << endl;
+	if (USE_HARDCODED_INPUT) {
+		lapsCount = 3; // Profiling
+		checkPointsCount = 4; // Profiling
+	}
+	else {
+		cin >> lapsCount;
+		cin >> checkPointsCount;
+		//cerr << lapsCount << endl;
+		//cerr << checkPointsCount << endl;
+	}
 
 	checkPoints = new CheckPoint*[checkPointsCount];
 
 	int checkPointXCoord, checkPointYCoord;
 	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
-		if (0 == cpIdx) { checkPointXCoord = 7982; checkPointYCoord = 7873; }
-		if (1 == cpIdx) { checkPointXCoord = 13284; checkPointYCoord = 5513; }
-		if (2 == cpIdx) { checkPointXCoord = 9539; checkPointYCoord = 1380; }
-		if (3 == cpIdx) { checkPointXCoord = 3637; checkPointYCoord = 7873; }
-		//cin >> checkPointXCoord >> checkPointYCoord;
-		//cerr << checkPointXCoord << " " << checkPointYCoord << endl;
+		if (USE_HARDCODED_INPUT) {
+			if (0 == cpIdx) { checkPointXCoord = 7982; checkPointYCoord = 7873; }
+			if (1 == cpIdx) { checkPointXCoord = 13284; checkPointYCoord = 5513; }
+			if (2 == cpIdx) { checkPointXCoord = 9539; checkPointYCoord = 1380; }
+			if (3 == cpIdx) { checkPointXCoord = 3637; checkPointYCoord = 7873; }
+		}
+		else {
+			cin >> checkPointXCoord >> checkPointYCoord;
+			//cerr << checkPointXCoord << " " << checkPointYCoord << endl;
+		}
 
 		checkPoints[cpIdx] = new CheckPoint(Coords((float)checkPointXCoord, (float)checkPointYCoord), Coords(), CHECKPOINT_RADIUS, cpIdx);
 	}
@@ -2058,21 +2091,30 @@ void Game::getTurnInput() {
 	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
 
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
-		if (FIRST_TURN == turnsCount) {
-			if (0 == podIdx) { podXCoord = 7779; podYCoord = 7416; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-			if (1 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-			if (2 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-			if (3 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+		if (USE_HARDCODED_INPUT) {
+			if (FIRST_TURN == turnsCount) {
+				if (0 == podIdx) { podXCoord = 7779; podYCoord = 7416; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+				if (1 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+				if (2 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+				if (3 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
+			}
+			else {
+				//if (0 == podIdx) { podXCoord = 7874; podYCoord = 7383; podVx = 80; podVy = -27; podAngle = 341; podNextCheckPointId = 1; }
+				//if (1 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
+				//if (2 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
+				//if (3 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
+
+				if (0 == podIdx) { podXCoord = 11739; podYCoord = 5960; podVx = 366; podVy = -201; podAngle = 336; podNextCheckPointId = 1; }
+				if (1 == podIdx) { podXCoord = 15302; podYCoord = 5361; podVx = 532; podVy = -141; podAngle = 340; podNextCheckPointId = 2; }
+				if (2 == podIdx) { podXCoord = 13683; podYCoord = 4503; podVx = 167; podVy = -234; podAngle = 224; podNextCheckPointId = 2; }
+				if (3 == podIdx) { podXCoord = 12248; podYCoord = 6683; podVx = 280; podVy = -294; podAngle = 268; podNextCheckPointId = 1; }
+			}
 		}
 		else {
-			if (0 == podIdx) { podXCoord = 7874; podYCoord = 7383; podVx = 80; podVy = -27; podAngle = 341; podNextCheckPointId = 1; }
-			if (1 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
-			if (2 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
-			if (3 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
+			cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
+			//cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
 		}
-		//cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
-		//cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
-
+		
 		Pod** pods = turnState->getPods();
 		pods[podIdx]->setPosition(Coords((float)podXCoord, (float)podYCoord));
 		pods[podIdx]->setSpeedVector(Coords((float)podVx, (float)podVy));
@@ -2207,9 +2249,18 @@ void Game::debugCheckPoints() const {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
-int main() {
-	Game game;
-	game.play();
+#include "debug.h"
+
+int main(int argc, char** argv) {
+	//Game game;
+	//game.play();
+
+	//testSimulation();
+
+	//return 0;
+
+	doctest::Context context;
+	int res = context.run();
 
 	return 0;
 }
