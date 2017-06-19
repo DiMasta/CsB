@@ -92,10 +92,22 @@ TEST_CASE("Test Simulation of a turn!") {
 	// ENEMY_POD : Coords : (X = 11099, Y = 7786) Speed : (X = 327, Y = -222) Angle : 305
 	turnNplus4->simulateTurn(actionForSimulation);
 
-	CHECK(turnNplus4->getPod(0)->getPosition() == Coords(10400.f, 5762.f));
-	CHECK(turnNplus4->getPod(1)->getPosition() == Coords(10960.f,  6952.f));
-	CHECK(turnNplus4->getPod(2)->getPosition() == Coords(12739.f, 5204.f));
-	CHECK(turnNplus4->getPod(3)->getPosition() == Coords(11099.f, 7786.f));
+	SUBCASE("Tests for turn 5") {
+		CHECK(turnNplus4->getPod(0)->getPosition() == Coords(10400.f, 5762.f));
+		CHECK(turnNplus4->getPod(1)->getPosition() == Coords(10960.f, 6952.f));
+		CHECK(turnNplus4->getPod(2)->getPosition() == Coords(12739.f, 5204.f));
+		CHECK(turnNplus4->getPod(3)->getPosition() == Coords(11099.f, 7786.f));
+
+		CHECK(turnNplus4->getPod(0)->getSpeedVector() == Coords(355.f, -252.f));
+		CHECK(turnNplus4->getPod(1)->getSpeedVector() == Coords(402.f, -166.f));
+		CHECK(turnNplus4->getPod(2)->getSpeedVector() == Coords(429.f, -182.f));
+		CHECK(turnNplus4->getPod(3)->getSpeedVector() == Coords(327.f, -222.f));
+
+		CHECK(round(turnNplus4->getPod(0)->getAngle()) == 351);
+		CHECK(round(turnNplus4->getPod(1)->getAngle()) == 330);
+		CHECK(round(turnNplus4->getPod(2)->getAngle()) == 278);
+		CHECK(round(turnNplus4->getPod(3)->getAngle()) == 305);
+	}
 
 	delete debugState;
 	delete turnNplus1;

@@ -10,6 +10,7 @@
 #include <ctime>
 
 #define M_PI 3.14159265358979323846
+#define TESTS
 
 using namespace std;
 
@@ -371,6 +372,7 @@ public:
 	void setRole(PodRole role) { this->role = role; }
 	void setPassedCheckPoints(int passedCheckPoints) { this->passedCheckPoints = passedCheckPoints; }
 
+	float getAngle() const { return angle; }
 	int getNextCheckPointId() const { return nextCheckPointId; }
 	int getTurnsLeft() const { return turnsLeft; }
 	int getSheildUp() const { return shieldUp; }
@@ -2249,18 +2251,18 @@ void Game::debugCheckPoints() const {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+#ifdef TESTS
 #include "debug.h"
+#endif // TESTS
 
 int main(int argc, char** argv) {
 	//Game game;
 	//game.play();
 
-	//testSimulation();
-
-	//return 0;
-
+#ifdef TESTS
 	doctest::Context context;
 	int res = context.run();
+#endif // TESTS
 
 	return 0;
 }
