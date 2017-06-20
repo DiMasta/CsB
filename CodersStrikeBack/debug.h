@@ -4,7 +4,14 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "doctest.h"
 
-//void testSimulation() {
+//TEST_CASE("Test MiniMax with hardcoded evaluation!") {
+//	Game game;
+//
+//	State state;
+//	Action action = game.chooseAction(&state, PR_INVALID);
+//
+//}
+
 TEST_CASE("Test Simulation of a turn!") {
 	Pod* pod0 = new Pod(Coords(8593.f, 7137.f), Coords(255.f, -87.f), 341.f, 1, 100, false, POD_RADIUS, 3, PR_MY_HUNTER, 0);
 	Pod* pod1 = new Pod(Coords(8938.f, 7918.f), Coords(235.f, -129.f), 331.f, 1, 100, false, POD_RADIUS, 3, PR_MY_HUNTER, 0);
@@ -29,11 +36,11 @@ TEST_CASE("Test Simulation of a turn!") {
 	debugCheckPoints[2] = cp2;
 	debugCheckPoints[3] = cp3;
 
-	State* debugState = new State(GAME_PODS_COUNT, debugPods, debugCheckPoints);
+	State* debugState = new State(GAME_PODS_COUNT, debugPods, GAME_PODS_COUNT, debugCheckPoints);
 
 	Action actionForSimulation[GAME_PODS_COUNT];
 
-	actionForSimulation[0] = Action(Coords(13284.f, 5513.f), false, 100, AT_INVALID_ACTION);
+	actionForSimulation[0] = Action(Coords(13284.f, 5513.f), false, 100, AT_INVALID_ACTION); 
 	actionForSimulation[1] = Action(Coords(13284.f, 5513.f), false, 100, AT_INVALID_ACTION);
 	actionForSimulation[2] = Action(Coords(10892.f, 5909.f), false, 100, AT_INVALID_ACTION);
 	actionForSimulation[3] = Action(Coords(12440.f, 6181.f), false, 100, AT_INVALID_ACTION);
@@ -122,5 +129,7 @@ TEST_CASE("Test Simulation of a turn!") {
 
 	delete[] debugCheckPoints;
 }
+
+
 
 #endif //__DEBUG_H__

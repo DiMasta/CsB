@@ -39,11 +39,11 @@ const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 //const int POD_ACTIONS_COUNT = 7;
-const int POD_ACTIONS_COUNT = 5; // For debuging
+const int POD_ACTIONS_COUNT = 3; // For debuging
 const int FIRST_GOAL_CP_ID = 1;
-const int USE_HARDCODED_INPUT = 0;
+const int USE_HARDCODED_INPUT = 1;
 
-const int MINIMAX_DEPTH = 6;
+const int MINIMAX_DEPTH = 4;
 const int LAPS_COUNT = 3;
 
 const int PASSED_CPS_WEIGHT = 5000;
@@ -678,15 +678,15 @@ void Pod::generateTurnActions() {
 	Coords podForwardTarget = calcPodTarget(PD_FORWARD);
 	Coords podRightTarget = calcPodTarget(PD_RIGHT);
 
-	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
-	//turnActions[1].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
-	//turnActions[2].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
-
 	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
-	turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
-	turnActions[2].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
-	turnActions[3].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
-	turnActions[4].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+	turnActions[1].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
+	turnActions[2].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+
+	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
+	//turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
+	//turnActions[2].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
+	//turnActions[3].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
+	//turnActions[4].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
 
 	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
 	//turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
@@ -852,7 +852,7 @@ public:
 	State(int podsCount);
 	State(State* state);
 	State(State* state, PodRole role);
-	State(int podsCount, Pod** pods, CheckPoint** checkPoints);
+	State(int podsCount, Pod** pods, int checkPointsCount, CheckPoint** checkPoints);
 	~State();
 
 	Pod** getPods() const { return pods; }
@@ -953,9 +953,10 @@ State::State(State* state, PodRole role) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-State::State(int podsCount, Pod** pods, CheckPoint** checkPoints) :
+State::State(int podsCount, Pod** pods, int checkPointsCount, CheckPoint** checkPoints) :
 	podsCount(podsCount),
 	pods(pods),
+	checkPointsCount(checkPointsCount),
 	checkPoints(checkPoints)
 {
 }
@@ -1582,11 +1583,12 @@ public:
 	Action backtrack(Node* node) const;
 	void deleteTree(Node* node);
 	void initTree();
+	void clear();
 
 	MinMaxResult maximize(Node* node, PodRole podRole, int alpha, int beta);
 	MinMaxResult minimize(Node* node, PodRole podRole, int alpha, int beta);
 
-	int evaluateState(State* state, PodRole podRole) const;
+	int evaluateState(Node* node, PodRole podRole) const;
 	int evaluateRunnerState(State* state) const;
 	int evaluateHunterrState(State* state) const;
 
@@ -1622,12 +1624,7 @@ Minimax::Minimax(
 //*************************************************************************************************************
 
 Minimax::~Minimax() {
-	deleteTree(tree);
-
-	if (tree) {
-		delete tree;
-		tree = NULL;
-	}
+	clear();
 }
 
 //*************************************************************************************************************
@@ -1637,7 +1634,7 @@ Action Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
 	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX);
 
-	//cerr << minimaxRes.bestLeaveNode->getPathToNode() << endl;
+	cerr << minimaxRes.bestLeaveNode->getPathToNode() << endl;
 
 	return backtrack(minimaxRes.bestLeaveNode);
 }
@@ -1686,17 +1683,24 @@ void Minimax::initTree() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Minimax::clear() {
+	deleteTree(tree);
+
+	if (tree) {
+		delete tree;
+		tree = NULL;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta) {
 	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
-		int eval = evaluateState(node->getState(), podRole);
+		int eval = evaluateState(node, podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
-
+		
 		return res;
-
-		//int rInt = debugEval(node->getPathToNode());
-		//
-		//MinMaxResult res = MinMaxResult(node, rInt); // For debugging the tree
-		//return res;
 	}
 
 	MinMaxResult res = MinMaxResult(NULL, INT_MIN);
@@ -1711,13 +1715,13 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 			res = minRes;
 		}
 
-		if (res.evaluationValue >= beta) {
-			break;
-		}
-
-		if (res.evaluationValue > alpha) {
-			alpha = res.evaluationValue;
-		}
+		//if (res.evaluationValue >= beta) {
+		//	break;
+		//}
+		//
+		//if (res.evaluationValue > alpha) {
+		//	alpha = res.evaluationValue;
+		//}
 	}
 
 	return res;
@@ -1739,13 +1743,13 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 			res = maxRes;
 		}
 
-		if (res.evaluationValue <= alpha) {
-			break;
-		}
-
-		if (res.evaluationValue < beta) {
-			beta = res.evaluationValue;
-		}
+		//if (res.evaluationValue <= alpha) {
+		//	break;
+		//}
+		//
+		//if (res.evaluationValue < beta) {
+		//	beta = res.evaluationValue;
+		//}
 	}
 
 	return res;
@@ -1754,14 +1758,17 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Minimax::evaluateState(State* state, PodRole podRole) const {
+int Minimax::evaluateState(Node* node, PodRole podRole) const {
 	int evaluation = 0;
 
 	if (PR_MY_RUNNER == podRole) {
-		evaluation = evaluateRunnerState(state);
+		evaluation = evaluateRunnerState(node->getState());
 	}
 	else if (PR_MY_HUNTER == podRole) {
-		evaluation = evaluateHunterrState(state);
+		evaluation = evaluateHunterrState(node->getState());
+	}
+	else {
+		evaluation = debugEval(node->getPathToNode());
 	}
 
 	return evaluation;
@@ -1953,6 +1960,7 @@ public:
 	Action chooseAction(State* state, PodRole role);
 	void makeSubStates();
 	void clearSubStates();
+	void resetMiniMax();
 
 	void debug() const;
 	void debugCheckPoints() const;
@@ -2161,7 +2169,10 @@ void Game::makeTurn() {
 	else {
 		// MiniMax
 		Action runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
+		resetMiniMax();
+
 		Action hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
+		resetMiniMax();
 
 		runnerAction.printAction();
 		hunterAction.printAction();
@@ -2228,6 +2239,17 @@ void Game::clearSubStates() {
 	if (myHunterSubState) {
 		delete myHunterSubState;
 		myHunterSubState = NULL;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Game::resetMiniMax(){
+	if (minimax) {
+		minimax->clear();
+		delete minimax;
+		minimax = NULL;
 	}
 }
 
