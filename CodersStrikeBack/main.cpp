@@ -57,7 +57,7 @@ const int ANGLE_HUNTER_WEIGHT = 100;
 const int ENEMY_DIST_TO_NEXT_CP_WEIGHT = 200;
 const int ENEMY_ANGLE_TO_NEXT_CP_WEIGHT = 1500;
 
-const string SHEILD = "SHEILD";
+const string SHEILD = "SHIELD";
 const string BOOST = "BOOST";
 
 enum MaximizeMinimize {
@@ -1960,6 +1960,7 @@ public:
 	void clearSubStates();
 	void resetMiniMax();
 
+	void getHardCodedInput(int podIdx);
 	void assignInput(
 		int inPodXCoord,
 		int inPodYCoord,
@@ -2106,86 +2107,94 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Game::getHardCodedInput(int podIdx) {
+	switch (turnsCount) {
+	case FIRST_TURN:
+		if (0 == podIdx) { assignInput(7779, 7416, 0, 0, -1, 1); }
+		if (1 == podIdx) { assignInput(8185, 8330, 0, 0, -1, 1); }
+		if (2 == podIdx) { assignInput(7372, 6503, 0, 0, -1, 1); }
+		if (3 == podIdx) { assignInput(8592, 9243, 0, 0, -1, 1); }
+		break;
+	case 1:
+		if (0 == podIdx) { assignInput(7874, 7383, 80, -27, 341, 1); }
+		if (1 == podIdx) { assignInput(8754, 8016, 483, -267, 331, 1); }
+		if (2 == podIdx) { assignInput(7471, 6486, 83, -14, 350, 1); }
+		if (3 == podIdx) { assignInput(8670, 9181, 66, -52, 322, 1); }
+		break;
+	case 2:
+		if (0 == podIdx) { assignInput(8049, 7324, 148, -50, 341, 1); }
+		if (1 == podIdx) { assignInput(9305, 7676, 468, -289, 313, 1); }
+		if (2 == podIdx) { assignInput(8195, 6365, 615, -103, 351, 1); }
+		if (3 == podIdx) { assignInput(8814, 9067, 122, -97, 322, 1); }
+		break;
+	case 3:
+		if (0 == podIdx) { assignInput(8279, 7216, 195, -91, 325, 1); }
+		if (1 == podIdx) { assignInput(9860, 7337, 471, -287, 330, 1); }
+		if (2 == podIdx) { assignInput(8909, 6245, 606, -101, 350, 1); }
+		if (3 == podIdx) { assignInput(9014, 8908, 170, -135, 322, 1); }
+		break;
+	case 4:
+		if (0 == podIdx) { assignInput(8567, 7088, 244, -109, 338, 1); }
+		if (1 == podIdx) { assignInput(10398, 6976, 457, -306, 312, 1); }
+		if (2 == podIdx) { assignInput(9614, 6127, 598, -99, 350, 1); }
+		if (3 == podIdx) { assignInput(9262, 8711, 211, -167, 322, 1); }
+		break;
+	case 5:
+		if (0 == podIdx) { assignInput(8891, 6920, 275, -143, 324, 1); }
+		if (1 == podIdx) { assignInput(10940, 6617, 460, -305, 328, 1); }
+		if (2 == podIdx) { assignInput(10311, 6011, 592, -98, 350, 1); }
+		if (3 == podIdx) { assignInput(9551, 8482, 245, -194, 321, 1); }
+		break;
+	case 6:
+		if (0 == podIdx) { assignInput(9257, 6734, 310, -157, 335, 1); }
+		if (1 == podIdx) { assignInput(11613, 6373, 617, -165, 310, 1); }
+		if (2 == podIdx) { assignInput(10843, 5729, 406, -281, 332, 1); }
+		if (3 == podIdx) { assignInput(9874, 8226, 274, -217, 321, 1); }
+		break;
+	case 7:
+		if (0 == podIdx) { assignInput(9647, 6517, 331, -184, 323, 1); }
+		if (1 == podIdx) { assignInput(12308, 6145, 590, -193, 321, 1); }
+		if (2 == podIdx) { assignInput(11348, 5431, 428, -253, 350, 1); }
+		if (3 == podIdx) { assignInput(10226, 7947, 299, -237, 321, 1); }
+		break;
+	case 8:
+		if (0 == podIdx) { assignInput(10054, 6268, 346, -211, 320, 1); }
+		if (1 == podIdx) { assignInput(12953, 5868, 547, -235, 303, 2); }
+		if (2 == podIdx) { assignInput(11875, 5192, 447, -202, 8, 1); }
+		if (3 == podIdx) { assignInput(10603, 7648, 320, -254, 321, 1); }
+		break;
+	case 9:
+		if (0 == podIdx) { assignInput(10477, 5994, 359, -233, 321, 1); }
+		if (1 == podIdx) { assignInput(13531, 5538, 491, -280, 288, 2); }
+		if (2 == podIdx) { assignInput(12412, 5034, 456, -134, 26, 1); }
+		if (3 == podIdx) { assignInput(11001, 7332, 338, -268, 321, 1); }
+		break;
+	case 10:
+		if (0 == podIdx) { assignInput(10902, 5686, 361, -261, 311, 1); }
+		if (1 == podIdx) { assignInput(14052, 5162, 442, -319, 287, 2); }
+		if (2 == podIdx) { assignInput(12940, 4970, 448, -54, 44, 1); }
+		if (3 == podIdx) { assignInput(11417, 7001, 353, -280, 321, 1); }
+		break;
+	case 11:
+		if (0 == podIdx) { assignInput(11329, 5350, 362, -286, 311, 1); }
+		if (1 == podIdx) { assignInput(14498, 4743, 379, -356, 272, 2); }
+		if (2 == podIdx) { assignInput(13434, 5005, 420, 29, 62, 2); }
+		if (3 == podIdx) { assignInput(11825, 6637, 346, -309, 303, 1); }
+		break;
+	default:
+		break;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Game::getTurnInput() {
 	//cerr << "case " << turnsCount << ":" << endl;
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
 
-		if (USE_HARDCODED_INPUT) {switch (turnsCount) {
-			case FIRST_TURN:
-				if (0 == podIdx) { assignInput(7779, 7416, 0, 0, -1, 1); }
-				if (1 == podIdx) { assignInput(8185, 8330, 0, 0, -1, 1); }
-				if (2 == podIdx) { assignInput(7372, 6503, 0, 0, -1, 1); }
-				if (3 == podIdx) { assignInput(8592, 9243, 0, 0, -1, 1); }
-				break;
-			case 1:
-				if (0 == podIdx) { assignInput(7874, 7383, 80, -27, 341, 1); }
-				if (1 == podIdx) { assignInput(8754, 8016, 483, -267, 331, 1); }
-				if (2 == podIdx) { assignInput(7471, 6486, 83, -14, 350, 1); }
-				if (3 == podIdx) { assignInput(8670, 9181, 66, -52, 322, 1); }
-				break;
-			case 2:
-				if (0 == podIdx) { assignInput(8049, 7324, 148, -50, 341, 1); }
-				if (1 == podIdx) { assignInput(9305, 7676, 468, -289, 313, 1); }
-				if (2 == podIdx) { assignInput(8195, 6365, 615, -103, 351, 1); }
-				if (3 == podIdx) { assignInput(8814, 9067, 122, -97, 322, 1); }
-				break;
-			case 3:
-				if (0 == podIdx) { assignInput(8279, 7216, 195, -91, 325, 1); }
-				if (1 == podIdx) { assignInput(9860, 7337, 471, -287, 330, 1); }
-				if (2 == podIdx) { assignInput(8909, 6245, 606, -101, 350, 1); }
-				if (3 == podIdx) { assignInput(9014, 8908, 170, -135, 322, 1); }
-				break;
-			case 4:
-				if (0 == podIdx) { assignInput(8567, 7088, 244, -109, 338, 1); }
-				if (1 == podIdx) { assignInput(10398, 6976, 457, -306, 312, 1); }
-				if (2 == podIdx) { assignInput(9614, 6127, 598, -99, 350, 1); }
-				if (3 == podIdx) { assignInput(9262, 8711, 211, -167, 322, 1); }
-				break;
-			case 5:
-				if (0 == podIdx) { assignInput(8891, 6920, 275, -143, 324, 1); }
-				if (1 == podIdx) { assignInput(10940, 6617, 460, -305, 328, 1); }
-				if (2 == podIdx) { assignInput(10311, 6011, 592, -98, 350, 1); }
-				if (3 == podIdx) { assignInput(9551, 8482, 245, -194, 321, 1); }
-				break;
-			case 6:
-				if (0 == podIdx) { assignInput(9257, 6734, 310, -157, 335, 1); }
-				if (1 == podIdx) { assignInput(11613, 6373, 617, -165, 310, 1); }
-				if (2 == podIdx) { assignInput(10843, 5729, 406, -281, 332, 1); }
-				if (3 == podIdx) { assignInput(9874, 8226, 274, -217, 321, 1); }
-				break;
-			case 7:
-				if (0 == podIdx) { assignInput(9647, 6517, 331, -184, 323, 1); }
-				if (1 == podIdx) { assignInput(12308, 6145, 590, -193, 321, 1); }
-				if (2 == podIdx) { assignInput(11348, 5431, 428, -253, 350, 1); }
-				if (3 == podIdx) { assignInput(10226, 7947, 299, -237, 321, 1); }
-				break;
-			case 8:
-				if (0 == podIdx) { assignInput(10054, 6268, 346, -211, 320, 1); }
-				if (1 == podIdx) { assignInput(12953, 5868, 547, -235, 303, 2); }
-				if (2 == podIdx) { assignInput(11875, 5192, 447, -202, 8, 1); }
-				if (3 == podIdx) { assignInput(10603, 7648, 320, -254, 321, 1); }
-				break;
-			case 9:
-				if (0 == podIdx) { assignInput(10477, 5994, 359, -233, 321, 1); }
-				if (1 == podIdx) { assignInput(13531, 5538, 491, -280, 288, 2); }
-				if (2 == podIdx) { assignInput(12412, 5034, 456, -134, 26, 1); }
-				if (3 == podIdx) { assignInput(11001, 7332, 338, -268, 321, 1); }
-				break;
-			case 10:
-				if (0 == podIdx) { assignInput(10902, 5686, 361, -261, 311, 1); }
-				if (1 == podIdx) { assignInput(14052, 5162, 442, -319, 287, 2); }
-				if (2 == podIdx) { assignInput(12940, 4970, 448, -54, 44, 1); }
-				if (3 == podIdx) { assignInput(11417, 7001, 353, -280, 321, 1); }
-				break;
-			case 11:
-				if (0 == podIdx) { assignInput(11329, 5350, 362, -286, 311, 1); }
-				if (1 == podIdx) { assignInput(14498, 4743, 379, -356, 272, 2); }
-				if (2 == podIdx) { assignInput(13434, 5005, 420, 29, 62, 2); }
-				if (3 == podIdx) { assignInput(11825, 6637, 346, -309, 303, 1); }
-				break;
-			default:
-				break;
-			}
+		if (USE_HARDCODED_INPUT) {
+			getHardCodedInput(podIdx);
 		}
 		else {
 			cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
@@ -2201,6 +2210,7 @@ void Game::getTurnInput() {
 		if (lastTurnPodsGoalCPs[podIdx] != podNextCheckPointId) {
 			pods[podIdx]->incrementPassedCPCounter();
 			pods[podIdx]->resetCPCounter();
+			lastTurnPodsGoalCPs[podIdx] = podNextCheckPointId;
 		}
 		else if (FIRST_TURN != turnsCount){
 			pods[podIdx]->decreaseTuensLeft();
