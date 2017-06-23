@@ -12,6 +12,11 @@
 #define M_PI 3.14159265358979323846
 //#define TESTS
 
+const int USE_HARDCODED_INPUT = 1;
+const int USE_INVALID_ROLES = 0;
+//const int POD_ACTIONS_COUNT = 7;
+const int POD_ACTIONS_COUNT = 3; // For debuging
+
 using namespace std;
 
 const float INVALID_COORD = 0.f;
@@ -38,10 +43,7 @@ const int INVALID_ID = -1;
 const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
-//const int POD_ACTIONS_COUNT = 7;
-const int POD_ACTIONS_COUNT = 3; // For debuging
 const int FIRST_GOAL_CP_ID = 1;
-const int USE_HARDCODED_INPUT = 1;
 
 const int MINIMAX_DEPTH = 4;
 const int LAPS_COUNT = 3;
@@ -1631,7 +1633,7 @@ Action Minimax::run(State* state, PodRole podRole) {
 	tree->copyState(state);
 	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX);
 
-	cerr << minimaxRes.bestLeaveNode->getPathToNode() << endl;
+	//cerr << minimaxRes.bestLeaveNode->getPathToNode() << endl;
 
 	return backtrack(minimaxRes.bestLeaveNode);
 }
@@ -1711,13 +1713,13 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 			res = minRes;
 		}
 
-		//if (res.evaluationValue >= beta) {
-		//	break;
-		//}
-		//
-		//if (res.evaluationValue > alpha) {
-		//	alpha = res.evaluationValue;
-		//}
+		if (res.evaluationValue >= beta) {
+			break;
+		}
+
+		if (res.evaluationValue > alpha) {
+			alpha = res.evaluationValue;
+		}
 	}
 
 	return res;
@@ -1739,13 +1741,13 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 			res = maxRes;
 		}
 
-		//if (res.evaluationValue <= alpha) {
-		//	break;
-		//}
-		//
-		//if (res.evaluationValue < beta) {
-		//	beta = res.evaluationValue;
-		//}
+		if (res.evaluationValue <= alpha) {
+			break;
+		}
+
+		if (res.evaluationValue < beta) {
+			beta = res.evaluationValue;
+		}
 	}
 
 	return res;
@@ -1958,6 +1960,14 @@ public:
 	void clearSubStates();
 	void resetMiniMax();
 
+	void assignInput(
+		int inPodXCoord,
+		int inPodYCoord,
+		int inPodVx,
+		int inPodVy,
+		int inPodAngle,
+		int inPodNextCheckPointId
+	);
 	void debug() const;
 	void debugCheckPoints() const;
 
@@ -1971,6 +1981,9 @@ private:
 	State* myRunnerSubState;
 	State* myHunterSubState;
 	Minimax* minimax;
+
+	// Turn inputs
+	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
 };
 
 //*************************************************************************************************************
@@ -2046,7 +2059,7 @@ void Game::gameLoop() {
 
 		if (USE_HARDCODED_INPUT) {
 			// Profiling
-			if (2 == turnsCount) {
+			if (12 == turnsCount) {
 				break;
 			}
 		}
@@ -2094,31 +2107,89 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
-	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
-
+	//cerr << "case " << turnsCount << ":" << endl;
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
-		if (USE_HARDCODED_INPUT) {
-			if (FIRST_TURN == turnsCount) {
-				if (0 == podIdx) { podXCoord = 7779; podYCoord = 7416; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-				if (1 == podIdx) { podXCoord = 8185; podYCoord = 8330; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-				if (2 == podIdx) { podXCoord = 7372; podYCoord = 6503; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-				if (3 == podIdx) { podXCoord = 8592; podYCoord = 9243; podVx = 0; podVy = 0; podAngle = -1; podNextCheckPointId = 1; }
-			}
-			else {
-				//if (0 == podIdx) { podXCoord = 7874; podYCoord = 7383; podVx = 80; podVy = -27; podAngle = 341; podNextCheckPointId = 1; }
-				//if (1 == podIdx) { podXCoord = 8754; podYCoord = 8016; podVx = 483; podVy = -267; podAngle = 331; podNextCheckPointId = 1; }
-				//if (2 == podIdx) { podXCoord = 7471; podYCoord = 6486; podVx = 83; podVy = -14; podAngle = 350; podNextCheckPointId = 1; }
-				//if (3 == podIdx) { podXCoord = 8670; podYCoord = 9181; podVx = 66; podVy = -52; podAngle = 322; podNextCheckPointId = 1; }
 
-				if (0 == podIdx) { podXCoord = 11739; podYCoord = 5960; podVx = 366; podVy = -201; podAngle = 336; podNextCheckPointId = 1; }
-				if (1 == podIdx) { podXCoord = 15302; podYCoord = 5361; podVx = 532; podVy = -141; podAngle = 340; podNextCheckPointId = 2; }
-				if (2 == podIdx) { podXCoord = 13683; podYCoord = 4503; podVx = 167; podVy = -234; podAngle = 224; podNextCheckPointId = 2; }
-				if (3 == podIdx) { podXCoord = 12248; podYCoord = 6683; podVx = 280; podVy = -294; podAngle = 268; podNextCheckPointId = 1; }
+		if (USE_HARDCODED_INPUT) {switch (turnsCount) {
+			case FIRST_TURN:
+				if (0 == podIdx) { assignInput(7779, 7416, 0, 0, -1, 1); }
+				if (1 == podIdx) { assignInput(8185, 8330, 0, 0, -1, 1); }
+				if (2 == podIdx) { assignInput(7372, 6503, 0, 0, -1, 1); }
+				if (3 == podIdx) { assignInput(8592, 9243, 0, 0, -1, 1); }
+				break;
+			case 1:
+				if (0 == podIdx) { assignInput(7874, 7383, 80, -27, 341, 1); }
+				if (1 == podIdx) { assignInput(8754, 8016, 483, -267, 331, 1); }
+				if (2 == podIdx) { assignInput(7471, 6486, 83, -14, 350, 1); }
+				if (3 == podIdx) { assignInput(8670, 9181, 66, -52, 322, 1); }
+				break;
+			case 2:
+				if (0 == podIdx) { assignInput(8049, 7324, 148, -50, 341, 1); }
+				if (1 == podIdx) { assignInput(9305, 7676, 468, -289, 313, 1); }
+				if (2 == podIdx) { assignInput(8195, 6365, 615, -103, 351, 1); }
+				if (3 == podIdx) { assignInput(8814, 9067, 122, -97, 322, 1); }
+				break;
+			case 3:
+				if (0 == podIdx) { assignInput(8279, 7216, 195, -91, 325, 1); }
+				if (1 == podIdx) { assignInput(9860, 7337, 471, -287, 330, 1); }
+				if (2 == podIdx) { assignInput(8909, 6245, 606, -101, 350, 1); }
+				if (3 == podIdx) { assignInput(9014, 8908, 170, -135, 322, 1); }
+				break;
+			case 4:
+				if (0 == podIdx) { assignInput(8567, 7088, 244, -109, 338, 1); }
+				if (1 == podIdx) { assignInput(10398, 6976, 457, -306, 312, 1); }
+				if (2 == podIdx) { assignInput(9614, 6127, 598, -99, 350, 1); }
+				if (3 == podIdx) { assignInput(9262, 8711, 211, -167, 322, 1); }
+				break;
+			case 5:
+				if (0 == podIdx) { assignInput(8891, 6920, 275, -143, 324, 1); }
+				if (1 == podIdx) { assignInput(10940, 6617, 460, -305, 328, 1); }
+				if (2 == podIdx) { assignInput(10311, 6011, 592, -98, 350, 1); }
+				if (3 == podIdx) { assignInput(9551, 8482, 245, -194, 321, 1); }
+				break;
+			case 6:
+				if (0 == podIdx) { assignInput(9257, 6734, 310, -157, 335, 1); }
+				if (1 == podIdx) { assignInput(11613, 6373, 617, -165, 310, 1); }
+				if (2 == podIdx) { assignInput(10843, 5729, 406, -281, 332, 1); }
+				if (3 == podIdx) { assignInput(9874, 8226, 274, -217, 321, 1); }
+				break;
+			case 7:
+				if (0 == podIdx) { assignInput(9647, 6517, 331, -184, 323, 1); }
+				if (1 == podIdx) { assignInput(12308, 6145, 590, -193, 321, 1); }
+				if (2 == podIdx) { assignInput(11348, 5431, 428, -253, 350, 1); }
+				if (3 == podIdx) { assignInput(10226, 7947, 299, -237, 321, 1); }
+				break;
+			case 8:
+				if (0 == podIdx) { assignInput(10054, 6268, 346, -211, 320, 1); }
+				if (1 == podIdx) { assignInput(12953, 5868, 547, -235, 303, 2); }
+				if (2 == podIdx) { assignInput(11875, 5192, 447, -202, 8, 1); }
+				if (3 == podIdx) { assignInput(10603, 7648, 320, -254, 321, 1); }
+				break;
+			case 9:
+				if (0 == podIdx) { assignInput(10477, 5994, 359, -233, 321, 1); }
+				if (1 == podIdx) { assignInput(13531, 5538, 491, -280, 288, 2); }
+				if (2 == podIdx) { assignInput(12412, 5034, 456, -134, 26, 1); }
+				if (3 == podIdx) { assignInput(11001, 7332, 338, -268, 321, 1); }
+				break;
+			case 10:
+				if (0 == podIdx) { assignInput(10902, 5686, 361, -261, 311, 1); }
+				if (1 == podIdx) { assignInput(14052, 5162, 442, -319, 287, 2); }
+				if (2 == podIdx) { assignInput(12940, 4970, 448, -54, 44, 1); }
+				if (3 == podIdx) { assignInput(11417, 7001, 353, -280, 321, 1); }
+				break;
+			case 11:
+				if (0 == podIdx) { assignInput(11329, 5350, 362, -286, 311, 1); }
+				if (1 == podIdx) { assignInput(14498, 4743, 379, -356, 272, 2); }
+				if (2 == podIdx) { assignInput(13434, 5005, 420, 29, 62, 2); }
+				if (3 == podIdx) { assignInput(11825, 6637, 346, -309, 303, 1); }
+				break;
+			default:
+				break;
 			}
 		}
 		else {
 			cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
-			//cerr << podXCoord << " " << podYCoord << " " << podVx << " " << podVy << " " << podAngle << " " << podNextCheckPointId << endl;
+			//cerr << "\tif (" << podIdx << "== podIdx) { assignInput(" << podXCoord << ", " << podYCoord << ", " << podVx << ", " << podVy << ", " << podAngle << ", " << podNextCheckPointId << "); }" << endl;
 		}
 		
 		Pod** pods = turnState->getPods();
@@ -2142,6 +2213,7 @@ void Game::getTurnInput() {
 
 		pods[podIdx]->setRole(role);
 	}
+	//cerr << "break;" << endl;
 }
 
 //*************************************************************************************************************
@@ -2163,11 +2235,14 @@ void Game::makeTurn() {
 		makeFirstTurn();
 	}
 	else {
+		PodRole runnerRole = USE_INVALID_ROLES ? PR_INVALID : PR_MY_RUNNER;
+		PodRole hunterRole = USE_INVALID_ROLES ? PR_INVALID : PR_MY_HUNTER;
+
 		// MiniMax
-		Action runnerAction = chooseAction(myRunnerSubState, /*PR_MY_RUNNER*/PR_INVALID);
+		Action runnerAction = chooseAction(myRunnerSubState, runnerRole);
 		resetMiniMax();
 
-		Action hunterAction = chooseAction(myHunterSubState, /*PR_MY_HUNTER*/PR_INVALID);
+		Action hunterAction = chooseAction(myHunterSubState, hunterRole);
 		resetMiniMax();
 
 		runnerAction.printAction();
@@ -2247,6 +2322,25 @@ void Game::resetMiniMax(){
 		delete minimax;
 		minimax = NULL;
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Game::assignInput(
+	int inPodXCoord,
+	int inPodYCoord,
+	int inPodVx,
+	int inPodVy,
+	int inPodAngle,
+	int inPodNextCheckPointId
+) {
+	podXCoord = inPodXCoord;
+	podYCoord = inPodYCoord;
+	podVx = inPodVx;
+	podVy = inPodVy;
+	podAngle = inPodAngle;
+	podNextCheckPointId = inPodNextCheckPointId;
 }
 
 //*************************************************************************************************************
