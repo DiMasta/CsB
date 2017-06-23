@@ -1434,14 +1434,10 @@ Node::Node(
 //*************************************************************************************************************
 
 Node::~Node() {
-	if (state) {
+	// Max Nodes with not even depth are reusing the state of the Min parent Node and it is already deleted
+	if (state && (0 == nodeDepth % 2)) {
 		delete state;
 		state = NULL;
-	}
-
-	if (children) {
-		delete[] children;
-		children = NULL;
 	}
 
 	// Children and parent will be deleted when deleting the whole tree
@@ -1624,7 +1620,8 @@ Minimax::Minimax(
 //*************************************************************************************************************
 
 Minimax::~Minimax() {
-	clear();
+	// MiniMax tree is deleted in the game class after choosing an action
+	//clear();
 }
 
 //*************************************************************************************************************
@@ -1661,15 +1658,17 @@ Action Minimax::backtrack(Node* node) const {
 
 void Minimax::deleteTree(Node* node) {
 	if (node) {
-		if (NULL == node->getChildren()) {
-			delete node;
-			node = NULL;
+		int childrenCount = node->getChildrenCount();
+		Node** children = node->getChildren();
+
+		delete node;
+		node = NULL;
+
+		for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
+			deleteTree(children[childIdx]);
 		}
-		else {
-			for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
-				deleteTree(node->getChildI(childIdx));
-			}
-		}
+
+		delete[] children;
 	}
 }
 
@@ -1684,11 +1683,8 @@ void Minimax::initTree() {
 //*************************************************************************************************************
 
 void Minimax::clear() {
-	deleteTree(tree);
-
 	if (tree) {
-		delete tree;
-		tree = NULL;
+		deleteTree(tree);
 	}
 }
 
@@ -2168,10 +2164,10 @@ void Game::makeTurn() {
 	}
 	else {
 		// MiniMax
-		Action runnerAction = chooseAction(myRunnerSubState, PR_MY_RUNNER);
+		Action runnerAction = chooseAction(myRunnerSubState, /*PR_MY_RUNNER*/PR_INVALID);
 		resetMiniMax();
 
-		Action hunterAction = chooseAction(myHunterSubState, PR_MY_HUNTER);
+		Action hunterAction = chooseAction(myHunterSubState, /*PR_MY_HUNTER*/PR_INVALID);
 		resetMiniMax();
 
 		runnerAction.printAction();
@@ -2206,8 +2202,8 @@ void Game::makeFirstTurn() const {
 	// Aim the two pods to the first CheckPoint
 	CheckPoint* firstCheckPoint = turnState->getCheckPoint(FIRST_GOAL_CP_ID);
 	Coords firstCheckPointCoords = firstCheckPoint->getPosition();
-	cout << firstCheckPointCoords.xCoord << " " << firstCheckPointCoords.yCoord << " " << MAX_THRUST << endl;
-	cout << firstCheckPointCoords.xCoord << " " << firstCheckPointCoords.yCoord << " " << BOOST << endl;
+	cout << firstCheckPointCoords.xCoord << ' ' << firstCheckPointCoords.yCoord << ' ' << MAX_THRUST << endl;
+	cout << firstCheckPointCoords.xCoord << ' ' << firstCheckPointCoords.yCoord << ' ' << BOOST << endl;
 }
 
 //*************************************************************************************************************
