@@ -19,6 +19,7 @@ const int USE_INVALID_ROLES = 0;
 const int POD_ACTIONS_COUNT = 3; // For debuging
 const int MINIMAX_DEPTH = 4;
 const int PRINT_MINIMAX_TREE_TO_FILE = 1;
+const int SIM_TURNS = 2;
 
 using namespace std;
 
@@ -63,6 +64,9 @@ const string SHEILD = "SHIELD";
 const string BOOST = "BOOST";
 const string RUNNER_TREE_FILE = "minimaxRunnerTree.gv";
 const string HUNTER_TREE_FILE = "minimaxHunterTree.gv";
+const string PARENT_PATH = "P";
+
+const char PARENT_LABEL = 'P';
 
 enum MaximizeMinimize {
 	MM_MAXIMIZE = 0,
@@ -1364,6 +1368,7 @@ public:
 	Node* getParent() const { return parent; }
 	int getNodeDepth() const { return nodeDepth; }
 	string getPathToNode() const { return pathToNode; }
+	int getEvalValue() const { return evalValue; }
 
 	void setAction(Action action) { this->action = action; }
 	void setState(State* state) { this->state = state; }
@@ -1371,6 +1376,7 @@ public:
 	void setChildrenCount(int childrenCount) { this->childrenCount = childrenCount; }
 	void setChildren(Node** children) { this->children = children; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
+	void setEvalValue(int evalValue) { this->evalValue = evalValue; }
 
 	void addChild(Node* newChild);
 	Node* createChild(MaximizeMinimize mm, int actionIdx);
@@ -1397,6 +1403,7 @@ private:
 	// for debuging the tree
 	char label;
 	string pathToNode;
+	int evalValue;
 };
 
 //*************************************************************************************************************
@@ -1409,8 +1416,9 @@ Node::Node() :
 	childrenCount(0),
 	children(NULL),
 	nodeDepth(0),
-	label('%'),
-	pathToNode("")
+	pathToNode(PARENT_PATH),
+	label(PARENT_LABEL),
+	evalValue(0)
 {
 }
 
@@ -1857,11 +1865,10 @@ int Minimax::evaluateHunterState(State* state) const {
 void Minimax::printChildren(Node* node, ofstream& file) {
 	string nodePath = node->getPathToNode();
 
-	//file << nodePath << " [label=\"";
-	//node->getState()->getGrid()->debugPrint(file);
-	//file << nodePath << "\\n";
-	//file << node->getEvaliValue();
-	//file << "\"]\n";
+	file << nodePath << " [label=\"";
+	file << nodePath << "\\n";
+	file << node->getEvalValue();
+	file << "\"]\n";
 
 	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
 		Node* child = node->getChildI(childIdx);
@@ -2106,7 +2113,7 @@ void Game::gameLoop() {
 			cerr << endl;
 
 			// Profiling
-			if (12 == turnsCount) {
+			if (SIM_TURNS == turnsCount) {
 				break;
 			}
 		}

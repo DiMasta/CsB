@@ -1,88 +1,179 @@
 digraph mytree{
-->%A
-%A->%AA
-%AA->%AAA
-%AAA->%AAAA
-%AAA->%AAAB
-%AAA->%AAAC
-%AA->%AAB
-%AAB->%AABA
-%AAB->%AABB
-%AAB->%AABC
-%AA->%AAC
-%AAC->%AACA
-%AAC->%AACB
-%A->%AB
-%AB->%ABA
-%ABA->%ABAA
-%ABA->%ABAB
-%ABA->%ABAC
-%AB->%ABB
-%ABB->%ABBA
-%ABB->%ABBB
-%ABB->%ABBC
-%AB->%ABC
-%ABC->%ABCA
-%A->%AC
-%AC->%ACA
-%ACA->%ACAA
-%ACA->%ACAB
-%ACA->%ACAC
-->%B
-%B->%BA
-%BA->%BAA
-%BAA->%BAAA
-%BAA->%BAAB
-%BAA->%BAAC
-%BA->%BAB
-%BAB->%BABA
-%BAB->%BABB
-%BA->%BAC
-%BAC->%BACA
-%BAC->%BACB
-%B->%BB
-%BB->%BBA
-%BBA->%BBAA
-%BBA->%BBAB
-%BBA->%BBAC
-%BB->%BBB
-%BBB->%BBBA
-%BB->%BBC
-%BBC->%BBCA
-%B->%BC
-%BC->%BCA
-%BCA->%BCAA
-%BCA->%BCAB
-%BCA->%BCAC
-->%C
-%C->%CA
-%CA->%CAA
-%CAA->%CAAA
-%CAA->%CAAB
-%CAA->%CAAC
-%CA->%CAB
-%CAB->%CABA
-%CAB->%CABB
-%CAB->%CABC
-%CA->%CAC
-%CAC->%CACA
-%CAC->%CACB
-%C->%CB
-%CB->%CBA
-%CBA->%CBAA
-%CBA->%CBAB
-%CBA->%CBAC
-%CB->%CBB
-%CBB->%CBBA
-%CBB->%CBBB
-%CBB->%CBBC
-%CB->%CBC
-%CBC->%CBCA
-%CBC->%CBCB
-%CBC->%CBCC
-%C->%CC
-%CC->%CCA
-%CCA->%CCAA
-%CCA->%CCAB
-%CCA->%CCAC
+P [label="P\n0"]
+P->PA
+PA [label="PA\n0"]
+PA->PAA
+PAA [label="PAA\n0"]
+PAA->PAAA
+PAAA [label="PAAA\n0"]
+PAAA->PAAAA
+PAAAA [label="PAAAA\n0"]
+PAAA->PAAAB
+PAAAB [label="PAAAB\n0"]
+PAAA->PAAAC
+PAAAC [label="PAAAC\n0"]
+PAA->PAAB
+PAAB [label="PAAB\n0"]
+PAAB->PAABA
+PAABA [label="PAABA\n0"]
+PAAB->PAABB
+PAABB [label="PAABB\n0"]
+PAAB->PAABC
+PAABC [label="PAABC\n0"]
+PAA->PAAC
+PAAC [label="PAAC\n0"]
+PAAC->PAACA
+PAACA [label="PAACA\n0"]
+PAAC->PAACB
+PAACB [label="PAACB\n0"]
+PAAC->PAACC
+PAACC [label="PAACC\n0"]
+PA->PAB
+PAB [label="PAB\n0"]
+PAB->PABA
+PABA [label="PABA\n0"]
+PABA->PABAA
+PABAA [label="PABAA\n0"]
+PABA->PABAB
+PABAB [label="PABAB\n0"]
+PABA->PABAC
+PABAC [label="PABAC\n0"]
+PA->PAC
+PAC [label="PAC\n0"]
+PAC->PACA
+PACA [label="PACA\n0"]
+PACA->PACAA
+PACAA [label="PACAA\n0"]
+PACA->PACAB
+PACAB [label="PACAB\n0"]
+PACA->PACAC
+PACAC [label="PACAC\n0"]
+PAC->PACB
+PACB [label="PACB\n0"]
+PACB->PACBA
+PACBA [label="PACBA\n0"]
+PACB->PACBB
+PACBB [label="PACBB\n0"]
+PACB->PACBC
+PACBC [label="PACBC\n0"]
+PAC->PACC
+PACC [label="PACC\n0"]
+PACC->PACCA
+PACCA [label="PACCA\n0"]
+PACC->PACCB
+PACCB [label="PACCB\n0"]
+PACC->PACCC
+PACCC [label="PACCC\n0"]
+P->PB
+PB [label="PB\n0"]
+PB->PBA
+PBA [label="PBA\n0"]
+PBA->PBAA
+PBAA [label="PBAA\n0"]
+PBAA->PBAAA
+PBAAA [label="PBAAA\n0"]
+PBAA->PBAAB
+PBAAB [label="PBAAB\n0"]
+PBAA->PBAAC
+PBAAC [label="PBAAC\n0"]
+PBA->PBAB
+PBAB [label="PBAB\n0"]
+PBAB->PBABA
+PBABA [label="PBABA\n0"]
+PBAB->PBABB
+PBABB [label="PBABB\n0"]
+PBAB->PBABC
+PBABC [label="PBABC\n0"]
+PBA->PBAC
+PBAC [label="PBAC\n0"]
+PBAC->PBACA
+PBACA [label="PBACA\n0"]
+PBAC->PBACB
+PBACB [label="PBACB\n0"]
+PBAC->PBACC
+PBACC [label="PBACC\n0"]
+PB->PBB
+PBB [label="PBB\n0"]
+PBB->PBBA
+PBBA [label="PBBA\n0"]
+PBBA->PBBAA
+PBBAA [label="PBBAA\n0"]
+PBBA->PBBAB
+PBBAB [label="PBBAB\n0"]
+PBBA->PBBAC
+PBBAC [label="PBBAC\n0"]
+PB->PBC
+PBC [label="PBC\n0"]
+PBC->PBCA
+PBCA [label="PBCA\n0"]
+PBCA->PBCAA
+PBCAA [label="PBCAA\n0"]
+PBC->PBCB
+PBCB [label="PBCB\n0"]
+PBCB->PBCBA
+PBCBA [label="PBCBA\n0"]
+PBC->PBCC
+PBCC [label="PBCC\n0"]
+PBCC->PBCCA
+PBCCA [label="PBCCA\n0"]
+P->PC
+PC [label="PC\n0"]
+PC->PCA
+PCA [label="PCA\n0"]
+PCA->PCAA
+PCAA [label="PCAA\n0"]
+PCAA->PCAAA
+PCAAA [label="PCAAA\n0"]
+PCAA->PCAAB
+PCAAB [label="PCAAB\n0"]
+PCAA->PCAAC
+PCAAC [label="PCAAC\n0"]
+PCA->PCAB
+PCAB [label="PCAB\n0"]
+PCAB->PCABA
+PCABA [label="PCABA\n0"]
+PCAB->PCABB
+PCABB [label="PCABB\n0"]
+PCAB->PCABC
+PCABC [label="PCABC\n0"]
+PCA->PCAC
+PCAC [label="PCAC\n0"]
+PCAC->PCACA
+PCACA [label="PCACA\n0"]
+PCAC->PCACB
+PCACB [label="PCACB\n0"]
+PCAC->PCACC
+PCACC [label="PCACC\n0"]
+PC->PCB
+PCB [label="PCB\n0"]
+PCB->PCBA
+PCBA [label="PCBA\n0"]
+PCBA->PCBAA
+PCBAA [label="PCBAA\n0"]
+PCBA->PCBAB
+PCBAB [label="PCBAB\n0"]
+PCBA->PCBAC
+PCBAC [label="PCBAC\n0"]
+PC->PCC
+PCC [label="PCC\n0"]
+PCC->PCCA
+PCCA [label="PCCA\n0"]
+PCCA->PCCAA
+PCCAA [label="PCCAA\n0"]
+PCCA->PCCAB
+PCCAB [label="PCCAB\n0"]
+PCCA->PCCAC
+PCCAC [label="PCCAC\n0"]
+PCC->PCCB
+PCCB [label="PCCB\n0"]
+PCCB->PCCBA
+PCCBA [label="PCCBA\n0"]
+PCC->PCCC
+PCCC [label="PCCC\n0"]
+PCCC->PCCCA
+PCCCA [label="PCCCA\n0"]
+PCCC->PCCCB
+PCCCB [label="PCCCB\n0"]
+PCCC->PCCCC
+PCCCC [label="PCCCC\n0"]
 }
