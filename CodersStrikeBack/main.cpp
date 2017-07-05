@@ -8,6 +8,7 @@
 #include <math.h>
 #include <climits>
 #include <ctime>
+#include <fstream>
 
 #define M_PI 3.14159265358979323846
 //#define TESTS
@@ -16,6 +17,8 @@ const int USE_HARDCODED_INPUT = 1;
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
+const int MINIMAX_DEPTH = 4;
+const int PRINT_MINIMAX_TREE_TO_FILE = 1;
 
 using namespace std;
 
@@ -45,7 +48,6 @@ const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 const int FIRST_GOAL_CP_ID = 1;
 
-const int MINIMAX_DEPTH = 4;
 const int LAPS_COUNT = 3;
 
 const int PASSED_CPS_WEIGHT = 5000;
@@ -59,6 +61,8 @@ const int ENEMY_ANGLE_TO_NEXT_CP_WEIGHT = 1500;
 
 const string SHEILD = "SHIELD";
 const string BOOST = "BOOST";
+const string RUNNER_TREE_FILE = "minimaxRunnerTree.gv";
+const string HUNTER_TREE_FILE = "minimaxHunterTree.gv";
 
 enum MaximizeMinimize {
 	MM_MAXIMIZE = 0,
@@ -1588,8 +1592,10 @@ public:
 
 	int evaluateState(Node* node, PodRole podRole) const;
 	int evaluateRunnerState(State* state) const;
-	int evaluateHunterrState(State* state) const;
+	int evaluateHunterState(State* state) const;
 
+	void printTreeToFile(const string& fileName);
+	void printChildren(Node* node, ofstream& file);
 	int debugEval(const string& nodePath) const;
 private:
 	Node* tree;
@@ -1763,7 +1769,7 @@ int Minimax::evaluateState(Node* node, PodRole podRole) const {
 		evaluation = evaluateRunnerState(node->getState());
 	}
 	else if (PR_MY_HUNTER == podRole) {
-		evaluation = evaluateHunterrState(node->getState());
+		evaluation = evaluateHunterState(node->getState());
 	}
 	else {
 		evaluation = debugEval(node->getPathToNode());
@@ -1812,7 +1818,7 @@ int Minimax::evaluateRunnerState(State* state) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Minimax::evaluateHunterrState(State* state) const {
+int Minimax::evaluateHunterState(State* state) const {
 	int evalValue = 0;
 
 	Pod* hunter = state->getPodByRole(PR_MY_HUNTER);
@@ -1843,6 +1849,46 @@ int Minimax::evaluateHunterrState(State* state) const {
 	}
 
 	return evalValue;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Minimax::printChildren(Node* node, ofstream& file) {
+	string nodePath = node->getPathToNode();
+
+	//file << nodePath << " [label=\"";
+	//node->getState()->getGrid()->debugPrint(file);
+	//file << nodePath << "\\n";
+	//file << node->getEvaliValue();
+	//file << "\"]\n";
+
+	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
+		Node* child = node->getChildI(childIdx);
+		string childPath = child->getPathToNode();
+
+		file << nodePath << "->" << childPath;
+		//file << " [label=\"";
+		//child->getAction().debugPrint(file);
+		//file << "\"]\n";
+		file << endl;
+
+		printChildren(child, file);
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Minimax::printTreeToFile(const string& fileName) {
+	ofstream file;
+	file.open(fileName.c_str());
+	file << "digraph mytree{\n";
+
+	printChildren(tree, file);
+
+	file << "}";
+	file.close();
 }
 
 //*************************************************************************************************************
@@ -2044,21 +2090,21 @@ void Game::initGame() {
 
 void Game::gameLoop() {
 	while (true) {
-		//clock_t begin = clock();
+		clock_t begin = clock();
 
 		getTurnInput();
 		turnBegin();
 		makeTurn();
 		turnEnd();
 
-		//clock_t end = clock();
-		//double elapsedMilliSecs = double(end - begin);
-		//
-		//cerr << endl;
-		//cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
-		//cerr << endl;
-
 		if (USE_HARDCODED_INPUT) {
+			clock_t end = clock();
+			double elapsedMilliSecs = double(end - begin);
+		
+			cerr << endl;
+			cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
+			cerr << endl;
+
 			// Profiling
 			if (12 == turnsCount) {
 				break;
@@ -2297,7 +2343,19 @@ void Game::makeFirstTurn() const {
 Action Game::chooseAction(State* state, PodRole role) {
 	minimax = new Minimax(NULL, MINIMAX_DEPTH);
 	minimax->initTree();
-	return minimax->run(state, role);
+	Action result = minimax->run(state, role);
+
+	if (PRINT_MINIMAX_TREE_TO_FILE) {
+		string fileForTree = RUNNER_TREE_FILE;
+
+		if (PR_MY_HUNTER == role) {
+			fileForTree = HUNTER_TREE_FILE;
+		}
+
+		minimax->printTreeToFile(fileForTree);
+	}
+
+	return result;
 }
 
 //*************************************************************************************************************
