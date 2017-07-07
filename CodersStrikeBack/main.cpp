@@ -13,12 +13,12 @@
 #define M_PI 3.14159265358979323846
 //#define TESTS
 
-const int USE_HARDCODED_INPUT = 1;
+const int USE_HARDCODED_INPUT = 0;
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
-const int MINIMAX_DEPTH = 4;
-const int PRINT_MINIMAX_TREE_TO_FILE = 1;
+const int MINIMAX_DEPTH = 8;
+const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int SIM_TURNS = 2;
 
 using namespace std;
@@ -1712,6 +1712,8 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 		int eval = evaluateState(node, podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
 		
+		node->setEvalValue(eval);
+
 		return res;
 	}
 
@@ -1736,6 +1738,7 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 		}
 	}
 
+	node->setEvalValue(res.evaluationValue);
 	return res;
 }
 
@@ -1743,6 +1746,15 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 //*************************************************************************************************************
 
 MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta) {
+	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
+		int eval = evaluateState(node, podRole);
+		MinMaxResult res = MinMaxResult(node, eval);
+
+		node->setEvalValue(eval);
+
+		return res;
+	}
+
 	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
 
 	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
@@ -1764,6 +1776,7 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 		}
 	}
 
+	node->setEvalValue(res.evaluationValue);
 	return res;
 }
 
@@ -1904,87 +1917,87 @@ void Minimax::printTreeToFile(const string& fileName) {
 int Minimax::debugEval(const string& nodePath) const {
 	int rInt = 0;
 
-	if ("%AAAA" == nodePath) { rInt = 41; }
-	else if ("%AAAB" == nodePath) { rInt = 67; }
-	else if ("%AAAC" == nodePath) { rInt = 34; }
-	else if ("%AABA" == nodePath) { rInt = 0; }
-	else if ("%AABB" == nodePath) { rInt = 69; }
-	else if ("%AABC" == nodePath) { rInt = 24; }
-	else if ("%AACA" == nodePath) { rInt = 78; }
-	else if ("%AACB" == nodePath) { rInt = 58; }
-	else if ("%AACC" == nodePath) { rInt = 62; }
-	else if ("%ABAA" == nodePath) { rInt = 64; }
-	else if ("%ABAB" == nodePath) { rInt = 5; }
-	else if ("%ABAC" == nodePath) { rInt = 45; }
-	else if ("%ABBA" == nodePath) { rInt = 81; }
-	else if ("%ABBB" == nodePath) { rInt = 27; }
-	else if ("%ABBC" == nodePath) { rInt = 61; }
-	else if ("%ABCA" == nodePath) { rInt = 91; }
-	else if ("%ABCB" == nodePath) { rInt = 95; }
-	else if ("%ABCC" == nodePath) { rInt = 42; }
-	else if ("%ACAA" == nodePath) { rInt = 27; }
-	else if ("%ACAB" == nodePath) { rInt = 36; }
-	else if ("%ACAC" == nodePath) { rInt = 91; }
-	else if ("%ACBA" == nodePath) { rInt = 4; }
-	else if ("%ACBB" == nodePath) { rInt = 2; }
-	else if ("%ACBC" == nodePath) { rInt = 53; }
-	else if ("%ACCA" == nodePath) { rInt = 92; }
-	else if ("%ACCB" == nodePath) { rInt = 82; }
-	else if ("%ACCC" == nodePath) { rInt = 21; }
-	else if ("%BAAA" == nodePath) { rInt = 16; }
-	else if ("%BAAB" == nodePath) { rInt = 18; }
-	else if ("%BAAC" == nodePath) { rInt = 95; }
-	else if ("%BABA" == nodePath) { rInt = 47; }
-	else if ("%BABB" == nodePath) { rInt = 26; }
-	else if ("%BABC" == nodePath) { rInt = 71; }
-	else if ("%BACA" == nodePath) { rInt = 38; }
-	else if ("%BACB" == nodePath) { rInt = 69; }
-	else if ("%BACC" == nodePath) { rInt = 12; }
-	else if ("%BBAA" == nodePath) { rInt = 67; }
-	else if ("%BBAB" == nodePath) { rInt = 99; }
-	else if ("%BBAC" == nodePath) { rInt = 35; }
-	else if ("%BBBA" == nodePath) { rInt = 94; }
-	else if ("%BBBB" == nodePath) { rInt = 3; }
-	else if ("%BBBC" == nodePath) { rInt = 11; }
-	else if ("%BBCA" == nodePath) { rInt = 22; }
-	else if ("%BBCB" == nodePath) { rInt = 33; }
-	else if ("%BBCC" == nodePath) { rInt = 73; }
-	else if ("%BCAA" == nodePath) { rInt = 64; }
-	else if ("%BCAB" == nodePath) { rInt = 41; }
-	else if ("%BCAC" == nodePath) { rInt = 11; }
-	else if ("%BCBA" == nodePath) { rInt = 53; }
-	else if ("%BCBB" == nodePath) { rInt = 68; }
-	else if ("%BCBC" == nodePath) { rInt = 47; }
-	else if ("%BCCA" == nodePath) { rInt = 44; }
-	else if ("%BCCB" == nodePath) { rInt = 62; }
-	else if ("%BCCC" == nodePath) { rInt = 57; }
-	else if ("%CAAA" == nodePath) { rInt = 37; }
-	else if ("%CAAB" == nodePath) { rInt = 59; }
-	else if ("%CAAC" == nodePath) { rInt = 23; }
-	else if ("%CABA" == nodePath) { rInt = 41; }
-	else if ("%CABB" == nodePath) { rInt = 29; }
-	else if ("%CABC" == nodePath) { rInt = 78; }
-	else if ("%CACA" == nodePath) { rInt = 16; }
-	else if ("%CACB" == nodePath) { rInt = 35; }
-	else if ("%CACC" == nodePath) { rInt = 90; }
-	else if ("%CBAA" == nodePath) { rInt = 42; }
-	else if ("%CBAB" == nodePath) { rInt = 88; }
-	else if ("%CBAC" == nodePath) { rInt = 6; }
-	else if ("%CBBA" == nodePath) { rInt = 40; }
-	else if ("%CBBB" == nodePath) { rInt = 42; }
-	else if ("%CBBC" == nodePath) { rInt = 64; }
-	else if ("%CBCA" == nodePath) { rInt = 48; }
-	else if ("%CBCB" == nodePath) { rInt = 46; }
-	else if ("%CBCC" == nodePath) { rInt = 5; }
-	else if ("%CCAA" == nodePath) { rInt = 90; }
-	else if ("%CCAB" == nodePath) { rInt = 29; }
-	else if ("%CCAC" == nodePath) { rInt = 70; }
-	else if ("%CCBA" == nodePath) { rInt = 50; }
-	else if ("%CCBB" == nodePath) { rInt = 6; }
-	else if ("%CCBC" == nodePath) { rInt = 1; }
-	else if ("%CCCA" == nodePath) { rInt = 93; }
-	else if ("%CCCB" == nodePath) { rInt = 48; }
-	else if ("%CCCC" == nodePath) { rInt = 29; }
+	if ("PAAAA" == nodePath) { rInt = 41; }
+	else if ("PAAAB" == nodePath) { rInt = 67; }
+	else if ("PAAAC" == nodePath) { rInt = 34; }
+	else if ("PAABA" == nodePath) { rInt = 0; }
+	else if ("PAABB" == nodePath) { rInt = 69; }
+	else if ("PAABC" == nodePath) { rInt = 24; }
+	else if ("PAACA" == nodePath) { rInt = 78; }
+	else if ("PAACB" == nodePath) { rInt = 58; }
+	else if ("PAACC" == nodePath) { rInt = 62; }
+	else if ("PABAA" == nodePath) { rInt = 64; }
+	else if ("PABAB" == nodePath) { rInt = 5; }
+	else if ("PABAC" == nodePath) { rInt = 45; }
+	else if ("PABBA" == nodePath) { rInt = 81; }
+	else if ("PABBB" == nodePath) { rInt = 27; }
+	else if ("PABBC" == nodePath) { rInt = 61; }
+	else if ("PABCA" == nodePath) { rInt = 91; }
+	else if ("PABCB" == nodePath) { rInt = 95; }
+	else if ("PABCC" == nodePath) { rInt = 42; }
+	else if ("PACAA" == nodePath) { rInt = 27; }
+	else if ("PACAB" == nodePath) { rInt = 36; }
+	else if ("PACAC" == nodePath) { rInt = 91; }
+	else if ("PACBA" == nodePath) { rInt = 4; }
+	else if ("PACBB" == nodePath) { rInt = 2; }
+	else if ("PACBC" == nodePath) { rInt = 53; }
+	else if ("PACCA" == nodePath) { rInt = 92; }
+	else if ("PACCB" == nodePath) { rInt = 82; }
+	else if ("PACCC" == nodePath) { rInt = 21; }
+	else if ("PBAAA" == nodePath) { rInt = 16; }
+	else if ("PBAAB" == nodePath) { rInt = 18; }
+	else if ("PBAAC" == nodePath) { rInt = 95; }
+	else if ("PBABA" == nodePath) { rInt = 47; }
+	else if ("PBABB" == nodePath) { rInt = 26; }
+	else if ("PBABC" == nodePath) { rInt = 71; }
+	else if ("PBACA" == nodePath) { rInt = 38; }
+	else if ("PBACB" == nodePath) { rInt = 69; }
+	else if ("PBACC" == nodePath) { rInt = 12; }
+	else if ("PBBAA" == nodePath) { rInt = 67; }
+	else if ("PBBAB" == nodePath) { rInt = 99; }
+	else if ("PBBAC" == nodePath) { rInt = 35; }
+	else if ("PBBBA" == nodePath) { rInt = 94; }
+	else if ("PBBBB" == nodePath) { rInt = 3; }
+	else if ("PBBBC" == nodePath) { rInt = 11; }
+	else if ("PBBCA" == nodePath) { rInt = 22; }
+	else if ("PBBCB" == nodePath) { rInt = 33; }
+	else if ("PBBCC" == nodePath) { rInt = 73; }
+	else if ("PBCAA" == nodePath) { rInt = 64; }
+	else if ("PBCAB" == nodePath) { rInt = 41; }
+	else if ("PBCAC" == nodePath) { rInt = 11; }
+	else if ("PBCBA" == nodePath) { rInt = 53; }
+	else if ("PBCBB" == nodePath) { rInt = 68; }
+	else if ("PBCBC" == nodePath) { rInt = 47; }
+	else if ("PBCCA" == nodePath) { rInt = 44; }
+	else if ("PBCCB" == nodePath) { rInt = 62; }
+	else if ("PBCCC" == nodePath) { rInt = 57; }
+	else if ("PCAAA" == nodePath) { rInt = 37; }
+	else if ("PCAAB" == nodePath) { rInt = 59; }
+	else if ("PCAAC" == nodePath) { rInt = 23; }
+	else if ("PCABA" == nodePath) { rInt = 41; }
+	else if ("PCABB" == nodePath) { rInt = 29; }
+	else if ("PCABC" == nodePath) { rInt = 78; }
+	else if ("PCACA" == nodePath) { rInt = 16; }
+	else if ("PCACB" == nodePath) { rInt = 35; }
+	else if ("PCACC" == nodePath) { rInt = 90; }
+	else if ("PCBAA" == nodePath) { rInt = 42; }
+	else if ("PCBAB" == nodePath) { rInt = 88; }
+	else if ("PCBAC" == nodePath) { rInt = 6; }
+	else if ("PCBBA" == nodePath) { rInt = 40; }
+	else if ("PCBBB" == nodePath) { rInt = 42; }
+	else if ("PCBBC" == nodePath) { rInt = 64; }
+	else if ("PCBCA" == nodePath) { rInt = 48; }
+	else if ("PCBCB" == nodePath) { rInt = 46; }
+	else if ("PCBCC" == nodePath) { rInt = 5; }
+	else if ("PCCAA" == nodePath) { rInt = 90; }
+	else if ("PCCAB" == nodePath) { rInt = 29; }
+	else if ("PCCAC" == nodePath) { rInt = 70; }
+	else if ("PCCBA" == nodePath) { rInt = 50; }
+	else if ("PCCBB" == nodePath) { rInt = 6; }
+	else if ("PCCBC" == nodePath) { rInt = 1; }
+	else if ("PCCCA" == nodePath) { rInt = 93; }
+	else if ("PCCCB" == nodePath) { rInt = 48; }
+	else if ("PCCCC" == nodePath) { rInt = 29; }
 
 	return rInt;
 }
