@@ -1383,6 +1383,7 @@ public:
 	void deleteChildren();
 	Node* getChildI(int i);
 	void copyState(State* state);
+	void createChildren();
 
 	void setPathToNode();
 
@@ -1542,6 +1543,13 @@ Node* Node::getChildI(int i) {
 
 void Node::copyState(State* state) {
 	this->state = new State(state);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::createChildren() {
+	// Apply all actions to the current state and choose the best of them using light eval function
 }
 
 //*************************************************************************************************************
