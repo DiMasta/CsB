@@ -13,7 +13,7 @@
 #define M_PI 3.14159265358979323846
 //#define TESTS
 
-const int USE_HARDCODED_INPUT = 0;
+const int USE_HARDCODED_INPUT = 1;
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
@@ -1719,6 +1719,8 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 
 	MinMaxResult res = MinMaxResult(NULL, INT_MIN);
 
+	// Create children with best 3 evaluations for the current node
+
 	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
 		Node* child = node->createChild(MM_MAXIMIZE, actionIdx);
 		node->addChild(child);
@@ -1756,6 +1758,9 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 	}
 
 	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
+
+	// Create children with best 3 evaluations for the current node
+	node->createChild();
 
 	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
 		Node* child = node->createChild(MM_MINIMIZE, actionIdx);
