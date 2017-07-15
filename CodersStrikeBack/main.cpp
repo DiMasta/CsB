@@ -1403,11 +1403,11 @@ public:
 	void setEvalValue(int evalValue) { this->evalValue = evalValue; }
 
 	void addChild(Node* newChild);
-	Node* createChild(MaximizeMinimize mm, int actionIdx);
+	Node* createChild(MaximizeMinimize mm, Action actionForChild, int actionIdx);
 	void deleteChildren();
 	Node* getChildI(int i);
 	void copyState(State* state);
-	void createChildren();
+	void createChildren(Action* allPossibleActions, MaximizeMinimize mm);
 
 	void setPathToNode();
 
@@ -1507,20 +1507,20 @@ void Node::addChild(Node* newChild) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node* Node::createChild(MaximizeMinimize mm, int actionIdx) {
-	Node* child = NULL;
-	Pod* pod = NULL;
+Node* Node::createChild(MaximizeMinimize mm, Action actionForChild, int actionIdx) {
+	//Node* child = NULL;
+	//Pod* pod = NULL;
+	//
+	//if (MM_MAXIMIZE == mm) {
+	//	pod = state->getPod(TSPI_MY_POD_IDX);
+	//}
+	//else if (MM_MINIMIZE == mm) {
+	//	pod = state->getPod(TSPI_ENEMY_POD_IDX);
+	//}
+	//
+	//Action actionForChild = pod->getTurnAction(actionIdx);
 
-	if (MM_MAXIMIZE == mm) {
-		pod = state->getPod(TSPI_MY_POD_IDX);
-	}
-	else if (MM_MINIMIZE == mm) {
-		pod = state->getPod(TSPI_ENEMY_POD_IDX);
-	}
-
-	Action actionForChild = pod->getTurnAction(actionIdx);
-
-	child = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1, 'A' + actionIdx);
+	Node* child = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1, 'A' + actionIdx);
 	child->setPathToNode();
 
 	if (MM_MAXIMIZE == mm) {
@@ -1572,8 +1572,15 @@ void Node::copyState(State* state) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Node::createChildren() {
+void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 	// Apply all actions to the current state and choose the best of them using light eval function
+	for (int actionIdx = 0; actionIdx < ALL_POSSIBLE_POD_ACTIONS_COUNT; ++actionIdx) {
+		Action actionForChild = allPossibleActions[actionIdx];
+
+		// If the tested action is good create a child and add it
+		Node* child = createChild(mm, actionForChild, actionIdx);
+		addChild(child);
+	}
 }
 
 //*************************************************************************************************************
@@ -1621,14 +1628,14 @@ public:
 	Minimax(Node* tree, int maxTreeDepth);
 	~Minimax();
 
-	Action run(State* state, PodRole role);
+	Action run(State* state, PodRole role, Action* allPossibleActions);
 	Action backtrack(Node* node) const;
 	void deleteTree(Node* node);
 	void initTree();
 	void clear();
 
-	MinMaxResult maximize(Node* node, PodRole podRole, int alpha, int beta);
-	MinMaxResult minimize(Node* node, PodRole podRole, int alpha, int beta);
+	MinMaxResult maximize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions);
+	MinMaxResult minimize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions);
 
 	int evaluateState(Node* node, PodRole podRole) const;
 	int evaluateRunnerState(State* state) const;
@@ -1675,9 +1682,9 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action Minimax::run(State* state, PodRole podRole) {
+Action Minimax::run(State* state, PodRole podRole, Action* allPossibleActions) {
 	tree->copyState(state);
-	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX);
+	MinMaxResult minimaxRes = maximize(tree, podRole, INT_MIN, INT_MAX, allPossibleActions);
 
 	//cerr << minimaxRes.bestLeaveNode->getPathToNode() << endl;
 
@@ -1739,7 +1746,7 @@ void Minimax::clear() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta) {
+MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions) {
 	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node, podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
@@ -1751,13 +1758,10 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 
 	MinMaxResult res = MinMaxResult(NULL, INT_MIN);
 
-	// Create children with best 3 evaluations for the current node
+	node->createChildren(allPossibleActions, MM_MAXIMIZE);
 
-	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
-		Node* child = node->createChild(MM_MAXIMIZE, actionIdx);
-		node->addChild(child);
-
-		MinMaxResult minRes = minimize(child, podRole, alpha, beta);
+	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
+		MinMaxResult minRes = minimize(node->getChildI(childIdx), podRole, alpha, beta, allPossibleActions);
 
 		if (minRes.evaluationValue > res.evaluationValue) {
 			res = minRes;
@@ -1779,7 +1783,7 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta)
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta) {
+MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions) {
 	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node, podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
@@ -1791,14 +1795,10 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 
 	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
 
-	// Create children with best 3 evaluations for the current node
-	//node->createChild();
+	node->createChildren(allPossibleActions, MM_MINIMIZE);
 
-	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
-		Node* child = node->createChild(MM_MINIMIZE, actionIdx);
-		node->addChild(child);
-
-		MinMaxResult maxRes = maximize(child, podRole, alpha, beta);
+	for (int childIdx = 0; childIdx < POD_ACTIONS_COUNT; ++childIdx) {
+		MinMaxResult maxRes = maximize(node->getChildI(childIdx), podRole, alpha, beta, allPossibleActions);
 
 		if (maxRes.evaluationValue < res.evaluationValue) {
 			res = maxRes;
@@ -2403,7 +2403,7 @@ void Game::makeFirstTurn() const {
 Action Game::chooseAction(State* state, PodRole role) {
 	minimax = new Minimax(NULL, MINIMAX_DEPTH);
 	minimax->initTree();
-	Action result = minimax->run(state, role);
+	Action result = minimax->run(state, role, allPossibleActions);
 
 	if (PRINT_MINIMAX_TREE_TO_FILE) {
 		string fileForTree = RUNNER_TREE_FILE;
