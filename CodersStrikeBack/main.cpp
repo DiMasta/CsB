@@ -430,6 +430,7 @@ public:
 	void incrementPassedCPCounter();
 	void decreaseTurnsLeft();
 	void heuristicSimulate(Action* action);
+	int heuristicEval(Pod** pods, MaximizeMinimize mm) const;
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -742,6 +743,20 @@ void Pod::heuristicSimulate(Action* action) {
 
 	applyThrust(thrust);
 	move(TURN_END_TIME);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Pod::heuristicEval(Pod** pods, MaximizeMinimize mm) const {
+	if (PR_MY_RUNNER == role || PR_ENEMY_RUNNER == role) {
+
+	}
+	else {
+
+	}
+
+	return 0;
 }
 
 //*************************************************************************************************************
@@ -1521,6 +1536,9 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 		}
 
 		pod.heuristicSimulate(&actionForChild);
+
+		// May be here check for the distance between runner pod and next CP or between hunter and runner
+		int hValue = pod.heuristicEval(state->getPods(), mm);
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
