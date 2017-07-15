@@ -72,7 +72,7 @@ const string PARENT_PATH = "P";
 
 const char PARENT_LABEL = 'P';
 
-const int DIRECTION_ANGLES[POD_DIRECTIONS_COUNT] = { -18, -9, 0, 9, 18 };
+const float DIRECTION_ANGLES[POD_DIRECTIONS_COUNT] = { -18.f, -9.f, 0.f, 9.f, 18.f };
 const int THRUST_VALUES[POD_THRUSTS_COUNT] = { 0, 50, 100 };
 const bool SHEILD_FLAGS[POD_SHEILD_FLAGS_COUNT] = { true, false };
 
@@ -189,18 +189,18 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 class Action {
 public:
 	Action();
-	Action(Coords target, bool useSheild, int thrust, int directionAngle);
+	Action(Coords target, bool useSheild, int thrust, float directionAngle);
 	~Action();
 
 	void setTarget(Coords target) { this->target = target; }
 	void setUseSheild(bool useSheild) { this->useSheild = useSheild; }
 	void setThrust(int thrust) { this->thrust = thrust; }
-	void setDirectionAngle(int directionAngle) { this->directionAngle = directionAngle; }
+	void setDirectionAngle(float directionAngle) { this->directionAngle = directionAngle; }
 
 	Coords getTarget() const { return target; }
 	bool getUseSheild() const { return useSheild; }
 	int getThrust() const { return thrust; }
-	int getDirectionAngle() const { return directionAngle; }
+	float getDirectionAngle() const { return directionAngle; }
 
 	void fillAction(Coords target, bool useSheild, int thrust);
 	bool isValid() const;
@@ -212,20 +212,20 @@ private:
 	Coords target;
 	bool useSheild;
 	int thrust;
-	int directionAngle;
+	float directionAngle;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action() : target(), useSheild(false), thrust(0) {
+Action::Action() : target(), useSheild(false), thrust(0), directionAngle(0.f){
 
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action(Coords target, bool useSheild, int thrust, int directionAngle) :
+Action::Action(Coords target, bool useSheild, int thrust, float directionAngle) :
 	target(target),
 	useSheild(useSheild),
 	thrust(thrust),
@@ -415,7 +415,6 @@ public:
 	PodRole getRole() const { return role; }
 	int getPassedCheckPoints() const { return passedCheckPoints; }
 
-	Action getTurnAction(int actionIdx) const;
 	float calcAngleToTarget(Coords target) const;
 	float calcDircetionToTurn(Coords target) const;
 	void rotate(Coords target);
@@ -426,12 +425,11 @@ public:
 	void resetCPCounter();
 	void activateSheild();
 	void manageSheild();
-	void generateTurnActions();
 	float clampAngle(float angleToClamp) const;
-	Coords calcPodTarget(PodDirection podDirection);
-	void initActions();
+	Coords calcPodTarget(float angleToTurn);
 	void incrementPassedCPCounter();
-	void decreaseTuensLeft();
+	void decreaseTurnsLeft();
+	void heuristicSimulate(Action* action);
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -445,7 +443,6 @@ private:
 	int sheildTurnsLeft;
 	PodRole role;
 	int passedCheckPoints;
-	Action turnActions[POD_ACTIONS_COUNT];
 };
 
 //*************************************************************************************************************
@@ -461,7 +458,6 @@ Pod::Pod() :
 	role(PR_INVALID),
 	passedCheckPoints(0)
 {
-	initActions();
 }
 
 //*************************************************************************************************************
@@ -494,13 +490,6 @@ Pod::Pod(
 //*************************************************************************************************************
 
 Pod::~Pod() {
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Action Pod::getTurnAction(int actionIdx) const {
-	return turnActions[actionIdx];
 }
 
 //*************************************************************************************************************
@@ -709,42 +698,10 @@ void Pod::manageSheild() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::generateTurnActions() {
-	Coords podLeftTarget = calcPodTarget(PD_LEFT);
-	Coords podForwardTarget = calcPodTarget(PD_FORWARD);
-	Coords podRightTarget = calcPodTarget(PD_RIGHT);
-
-	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST);
-	turnActions[1].fillAction(podRightTarget, true, 0);
-	turnActions[2].fillAction(podForwardTarget, false, MAX_THRUST);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Coords Pod::calcPodTarget(PodDirection podDirection) {
+Coords Pod::calcPodTarget(float angleToTurn) {
 	float podTargetAngle = 0.f;
 
-	switch (podDirection)
-	{
-	case PD_LEFT:
-		podTargetAngle = clampAngle(angle - MAX_ANGLE_PER_TURN);
-		break;
-	case PD_SLIGHT_LEFT:
-		podTargetAngle = clampAngle(angle - (MAX_ANGLE_PER_TURN / 2));
-		break;
-	case PD_FORWARD:
-		podTargetAngle = clampAngle(angle);
-		break;
-	case PD_SLIGHT_RIGHT:
-		podTargetAngle = clampAngle(angle + (MAX_ANGLE_PER_TURN / 2));
-		break;
-	case PD_RIGHT:
-		podTargetAngle = clampAngle(angle + MAX_ANGLE_PER_TURN);
-		break;
-	default:
-		break;
-	}
+	podTargetAngle = clampAngle(angle + angleToTurn);
 
 	float angleRadians = podTargetAngle * ((float)M_PI / (MAX_ANGLE / 2));
 
@@ -760,15 +717,6 @@ Coords Pod::calcPodTarget(PodDirection podDirection) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::initActions() {
-	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
-		turnActions[actionIdx] = Action();
-	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
 void Pod::incrementPassedCPCounter() {
 	++passedCheckPoints;
 }
@@ -776,8 +724,24 @@ void Pod::incrementPassedCPCounter() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::decreaseTuensLeft() {
+void Pod::decreaseTurnsLeft() {
 	--turnsLeft;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::heuristicSimulate(Action* action) {
+	Coords podTarget = calcPodTarget(action->getDirectionAngle());
+	rotate(podTarget);
+
+	int thrust = action->getThrust();
+	if (action->getUseSheild()) {
+		thrust = 0;
+	}
+
+	applyThrust(thrust);
+	move(TURN_END_TIME);
 }
 
 //*************************************************************************************************************
@@ -905,7 +869,6 @@ public:
 	Pod* getClosestToCPHunter(PodRole role) const;
 	int getRolePodIdx(PodRole role) const;
 	bool isTerminal() const;
-	void generatePodsTurnActions();
 	void turnEnd();
 	void computeCheckPointCollision(Pod* pod, CheckPoint* checkPoint);
 
@@ -1035,9 +998,6 @@ void State::simulateTurn(Action* podActions) {
 		}
 
 		pods[podIdx]->applyThrust(thrustToApply);
-
-		// After a pod is simulated we must compute new targets
-		pods[podIdx]->generateTurnActions();
 	}
 
 	movePods();
@@ -1262,17 +1222,6 @@ bool State::isTerminal() const {
 	}
 
 	return terminal;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void State::generatePodsTurnActions() {
-	// Here I must simulate all possible actions for a pod and choose best of them with light heuristic
-
-	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
-		pods[podIdx]->generateTurnActions();
-	}
 }
 
 //*************************************************************************************************************
@@ -1508,18 +1457,6 @@ void Node::addChild(Node* newChild) {
 //*************************************************************************************************************
 
 Node* Node::createChild(MaximizeMinimize mm, Action actionForChild, int actionIdx) {
-	//Node* child = NULL;
-	//Pod* pod = NULL;
-	//
-	//if (MM_MAXIMIZE == mm) {
-	//	pod = state->getPod(TSPI_MY_POD_IDX);
-	//}
-	//else if (MM_MINIMIZE == mm) {
-	//	pod = state->getPod(TSPI_ENEMY_POD_IDX);
-	//}
-	//
-	//Action actionForChild = pod->getTurnAction(actionIdx);
-
 	Node* child = new Node(actionForChild, NULL, this, 0, NULL, nodeDepth + 1, 'A' + actionIdx);
 	child->setPathToNode();
 
@@ -1576,6 +1513,14 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 	// Apply all actions to the current state and choose the best of them using light eval function
 	for (int actionIdx = 0; actionIdx < ALL_POSSIBLE_POD_ACTIONS_COUNT; ++actionIdx) {
 		Action actionForChild = allPossibleActions[actionIdx];
+
+		Pod pod = *(state->getPod(TSPI_MY_POD_IDX));
+	
+		if (MM_MINIMIZE == mm) {
+			pod = *(state->getPod(TSPI_ENEMY_POD_IDX));
+		}
+
+		pod.heuristicSimulate(&actionForChild);
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
@@ -2319,7 +2264,7 @@ void Game::getTurnInput() {
 			lastTurnPodsGoalCPs[podIdx] = podNextCheckPointId;
 		}
 		else if (FIRST_TURN != turnsCount){
-			pods[podIdx]->decreaseTuensLeft();
+			pods[podIdx]->decreaseTurnsLeft();
 		}
 
 		PodRole role = PR_MY_HUNTER;
@@ -2338,7 +2283,6 @@ void Game::getTurnInput() {
 void Game::turnBegin() {
 	if (FIRST_TURN != turnsCount) {
 		turnState->assignRoles();
-		turnState->generatePodsTurnActions();
 		makeSubStates();
 	}
 }
