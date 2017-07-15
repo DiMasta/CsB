@@ -48,6 +48,10 @@ const int SHEILD_TURNS = 3;
 const int FIRST_TURN = 0;
 const int SUBSTATE_PODS_COUNT = 2;
 const int FIRST_GOAL_CP_ID = 1;
+const int POD_DIRECTIONS_COUNT = 5;
+const int POD_THRUSTS_COUNT = 3;
+const int POD_SHEILD_FLAGS_COUNT = 2;
+const int ALL_POSSIBLE_POD_ACTIONS_COUNT = POD_DIRECTIONS_COUNT * POD_THRUSTS_COUNT * POD_SHEILD_FLAGS_COUNT;
 
 const int LAPS_COUNT = 3;
 
@@ -68,6 +72,10 @@ const string PARENT_PATH = "P";
 
 const char PARENT_LABEL = 'P';
 
+const int DIRECTION_ANGLES[POD_DIRECTIONS_COUNT] = { -18, -9, 0, 9, 18 };
+const int THRUST_VALUES[POD_THRUSTS_COUNT] = { 0, 50, 100 };
+const bool SHEILD_FLAGS[POD_SHEILD_FLAGS_COUNT] = { true, false };
+
 enum MaximizeMinimize {
 	MM_MAXIMIZE = 0,
 	MM_MINIMIZE
@@ -87,11 +95,25 @@ enum PodRole {
 };
 
 enum PodDirection {
+	PD_INVALID = -1,
 	PD_LEFT = 0,
 	PD_SLIGHT_LEFT,
 	PD_FORWARD,
 	PD_SLIGHT_RIGHT,
 	PD_RIGHT,
+};
+
+enum PodThusts {
+	PT_INVALID = -1,
+	PT_MIN = 0,
+	PT_HALF,
+	PT_MAX,
+};
+
+enum PodShieldFlags {
+	PSF_INALID = -1,
+	PSF_ON = 0,
+	PSF_OFF,
 };
 
 //-------------------------------------------------------------------------------------------------------------
@@ -167,13 +189,21 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 class Action {
 public:
 	Action();
-	Action(Coords target, bool useSheild, int thrust);
+	Action(Coords target, bool useSheild, int thrust, int directionAngle);
 	~Action();
+
+	void setTarget(Coords target) { this->target = target; }
+	void setUseSheild(bool useSheild) { this->useSheild = useSheild; }
+	void setThrust(int thrust) { this->thrust = thrust; }
+	void setDirectionAngle(int directionAngle) { this->directionAngle = directionAngle; }
 
 	Coords getTarget() const { return target; }
 	bool getUseSheild() const { return useSheild; }
 	int getThrust() const { return thrust; }
+	int getDirectionAngle() const { return directionAngle; }
+
 	void fillAction(Coords target, bool useSheild, int thrust);
+	bool isValid() const;
 
 	void printAction() const;
 
@@ -182,6 +212,7 @@ private:
 	Coords target;
 	bool useSheild;
 	int thrust;
+	int directionAngle;
 };
 
 //*************************************************************************************************************
@@ -194,10 +225,11 @@ Action::Action() : target(), useSheild(false), thrust(0) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action(Coords target, bool useSheild, int thrust) :
+Action::Action(Coords target, bool useSheild, int thrust, int directionAngle) :
 	target(target),
 	useSheild(useSheild),
-	thrust(thrust)
+	thrust(thrust),
+	directionAngle(directionAngle)
 {
 }
 
@@ -215,6 +247,13 @@ void Action::fillAction(Coords target, bool useSheild, int thrust) {
 	this->target = target;
 	this->useSheild = useSheild;
 	this->thrust = thrust;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Action::isValid() const {
+	return true;
 }
 
 //*************************************************************************************************************
@@ -678,20 +717,6 @@ void Pod::generateTurnActions() {
 	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST);
 	turnActions[1].fillAction(podRightTarget, true, 0);
 	turnActions[2].fillAction(podForwardTarget, false, MAX_THRUST);
-
-	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
-	//turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
-	//turnActions[2].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
-	//turnActions[3].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
-	//turnActions[4].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
-
-	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
-	//turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
-	//turnActions[2].fillAction(podLeftTarget, true, 0, AT_LEFT_SHEILD);
-	//turnActions[3].fillAction(podRightTarget, false, MAX_THRUST, AT_RIGHT_MAX_SPEED);
-	//turnActions[4].fillAction(podRightTarget, false, 0, AT_RIGHT_MIN_SPEED);
-	//turnActions[5].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
-	//turnActions[6].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
 }
 
 //*************************************************************************************************************
@@ -994,6 +1019,10 @@ void State::initState(int podsCount) {
 
 void State::simulateTurn(Action* podActions) {
 	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
+		if (!podActions[podIdx].isValid()) {
+			continue;
+		}
+
 		pods[podIdx]->rotate(podActions[podIdx].getTarget());
 
 		if (podActions[podIdx].getUseSheild()) {
@@ -2033,6 +2062,7 @@ public:
 	void makeSubStates();
 	void clearSubStates();
 	void resetMiniMax();
+	void fillAllPossibleActions();
 
 	void getHardCodedInput(int podIdx);
 	void assignInput(
@@ -2056,6 +2086,7 @@ private:
 	State* myRunnerSubState;
 	State* myHunterSubState;
 	Minimax* minimax;
+	Action allPossibleActions[ALL_POSSIBLE_POD_ACTIONS_COUNT];
 
 	// Turn inputs
 	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
@@ -2111,6 +2142,7 @@ Game::~Game() {
 
 void Game::initGame() {
 	turnState = new State(GAME_PODS_COUNT);
+	fillAllPossibleActions();
 }
 
 //*************************************************************************************************************
@@ -2417,6 +2449,25 @@ void Game::resetMiniMax(){
 		minimax->clear();
 		delete minimax;
 		minimax = NULL;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Game::fillAllPossibleActions() {
+	int actionIdx = 0;
+
+	for (int dirIdx = 0; dirIdx < POD_DIRECTIONS_COUNT; ++dirIdx) {
+		for (int thrustIdx = 0; thrustIdx < POD_THRUSTS_COUNT; ++thrustIdx) {
+			for (int sheildFlagIdx = 0; sheildFlagIdx < POD_SHEILD_FLAGS_COUNT; ++sheildFlagIdx) {
+				allPossibleActions[actionIdx].setDirectionAngle(DIRECTION_ANGLES[dirIdx]);
+				allPossibleActions[actionIdx].setThrust(THRUST_VALUES[thrustIdx]);
+				allPossibleActions[actionIdx].setUseSheild(SHEILD_FLAGS[sheildFlagIdx]);
+
+				++actionIdx;
+			}
+		}
 	}
 }
 
