@@ -19,7 +19,7 @@ const int USE_INVALID_ROLES = 0;
 const int POD_ACTIONS_COUNT = 3; // For debuging
 const int MINIMAX_DEPTH = 8;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
-const int SIM_TURNS = 2;
+const int SIM_TURNS = 11;
 
 using namespace std;
 
@@ -88,19 +88,10 @@ enum PodRole {
 
 enum PodDirection {
 	PD_LEFT = 0,
+	PD_SLIGHT_LEFT,
 	PD_FORWARD,
+	PD_SLIGHT_RIGHT,
 	PD_RIGHT,
-};
-
-enum ActionType {
-	AT_INVALID_ACTION = -1,
-	AT_LEFT_MAX_SPEED = 0,
-	AT_LEFT_MIN_SPEED,
-	AT_LEFT_SHEILD,
-	AT_RIGHT_MAX_SPEED,
-	AT_RIGHT_MIN_SPEED,
-	AT_RIGHT_SHEILD,
-	AT_FORWARD_NAX_SPEED,
 };
 
 //-------------------------------------------------------------------------------------------------------------
@@ -176,13 +167,13 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 class Action {
 public:
 	Action();
-	Action(Coords target, bool useSheild, int thrust, ActionType type);
+	Action(Coords target, bool useSheild, int thrust);
 	~Action();
 
 	Coords getTarget() const { return target; }
 	bool getUseSheild() const { return useSheild; }
 	int getThrust() const { return thrust; }
-	void fillAction(Coords target, bool useSheild, int thrust, ActionType type);
+	void fillAction(Coords target, bool useSheild, int thrust);
 
 	void printAction() const;
 
@@ -191,24 +182,22 @@ private:
 	Coords target;
 	bool useSheild;
 	int thrust;
-	ActionType type;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action() : target(), useSheild(false), thrust(0), type(AT_INVALID_ACTION) {
+Action::Action() : target(), useSheild(false), thrust(0) {
 
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Action::Action(Coords target, bool useSheild, int thrust, ActionType type) :
+Action::Action(Coords target, bool useSheild, int thrust) :
 	target(target),
 	useSheild(useSheild),
-	thrust(thrust),
-	type(type)
+	thrust(thrust)
 {
 }
 
@@ -222,11 +211,10 @@ Action::~Action() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Action::fillAction(Coords target, bool useSheild, int thrust, ActionType type) {
+void Action::fillAction(Coords target, bool useSheild, int thrust) {
 	this->target = target;
 	this->useSheild = useSheild;
 	this->thrust = thrust;
-	this->type = type;
 }
 
 //*************************************************************************************************************
@@ -249,7 +237,6 @@ void Action::printAction() const {
 //*************************************************************************************************************
 
 void Action::debug() const {
-	cerr << "ACTION_TYPE: " << type << endl;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -688,9 +675,9 @@ void Pod::generateTurnActions() {
 	Coords podForwardTarget = calcPodTarget(PD_FORWARD);
 	Coords podRightTarget = calcPodTarget(PD_RIGHT);
 
-	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
-	turnActions[1].fillAction(podRightTarget, true, 0, AT_RIGHT_SHEILD);
-	turnActions[2].fillAction(podForwardTarget, false, MAX_THRUST, AT_FORWARD_NAX_SPEED);
+	turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST);
+	turnActions[1].fillAction(podRightTarget, true, 0);
+	turnActions[2].fillAction(podForwardTarget, false, MAX_THRUST);
 
 	//turnActions[0].fillAction(podLeftTarget, false, MAX_THRUST, AT_LEFT_MAX_SPEED);
 	//turnActions[1].fillAction(podLeftTarget, false, 0, AT_LEFT_MIN_SPEED);
@@ -718,8 +705,14 @@ Coords Pod::calcPodTarget(PodDirection podDirection) {
 	case PD_LEFT:
 		podTargetAngle = clampAngle(angle - MAX_ANGLE_PER_TURN);
 		break;
+	case PD_SLIGHT_LEFT:
+		podTargetAngle = clampAngle(angle - (MAX_ANGLE_PER_TURN / 2));
+		break;
 	case PD_FORWARD:
 		podTargetAngle = clampAngle(angle);
+		break;
+	case PD_SLIGHT_RIGHT:
+		podTargetAngle = clampAngle(angle + (MAX_ANGLE_PER_TURN / 2));
 		break;
 	case PD_RIGHT:
 		podTargetAngle = clampAngle(angle + MAX_ANGLE_PER_TURN);
@@ -1246,6 +1239,8 @@ bool State::isTerminal() const {
 //*************************************************************************************************************
 
 void State::generatePodsTurnActions() {
+	// Here I must simulate all possible actions for a pod and choose best of them with light heuristic
+
 	for (int podIdx = 0; podIdx < podsCount; ++podIdx) {
 		pods[podIdx]->generateTurnActions();
 	}
@@ -1768,7 +1763,7 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta)
 	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
 
 	// Create children with best 3 evaluations for the current node
-	node->createChild();
+	//node->createChild();
 
 	for (int actionIdx = 0; actionIdx < POD_ACTIONS_COUNT; ++actionIdx) {
 		Node* child = node->createChild(MM_MINIMIZE, actionIdx);
