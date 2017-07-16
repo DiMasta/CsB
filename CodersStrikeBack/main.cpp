@@ -430,7 +430,7 @@ public:
 	void incrementPassedCPCounter();
 	void decreaseTurnsLeft();
 	void heuristicSimulate(Action* action);
-	int heuristicEval(Pod** pods, MaximizeMinimize mm) const;
+	int heuristicEval(Coords nextCheckPoint, MaximizeMinimize mm) const;
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -748,15 +748,24 @@ void Pod::heuristicSimulate(Action* action) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Pod::heuristicEval(Pod** pods, MaximizeMinimize mm) const {
-	if (PR_MY_RUNNER == role || PR_ENEMY_RUNNER == role) {
+int Pod::heuristicEval(Coords nextCheckPoint, MaximizeMinimize mm) const {
+	int eval = 0;
 
+	if (PR_MY_RUNNER == role || PR_ENEMY_RUNNER == role) {
+		// TODO: Not sure if here have to handel enemy runner diffrentl, debugging will show
+		float nextCPDistance = position.distance(nextCheckPoint);
+		float angleToNextCP = calcAngleToTarget(nextCheckPoint);
+
+		eval =
+			INT_MAX -
+			(DIST_TO_NEXT_CP_WEIGHT * (int)nextCPDistance) -
+			(ANGLE_TO_NEXT_CP_WEIGHT * (int)angleToNextCP);
 	}
 	else {
 
 	}
 
-	return 0;
+	return eval;
 }
 
 //*************************************************************************************************************
@@ -1538,7 +1547,8 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 		pod.heuristicSimulate(&actionForChild);
 
 		// May be here check for the distance between runner pod and next CP or between hunter and runner
-		int hValue = pod.heuristicEval(state->getPods(), mm);
+		Coords nextCPCoords = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
+		int hValue = pod.heuristicEval(nextCPCoords, mm);
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
