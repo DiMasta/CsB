@@ -17,9 +17,9 @@ const int USE_HARDCODED_INPUT = 1;
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
-const int MINIMAX_DEPTH = 8;
+const int MINIMAX_DEPTH = 1;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
-const int SIM_TURNS = 11;
+const int SIM_TURNS = 2;
 
 using namespace std;
 
@@ -1564,11 +1564,13 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 
 		Coords nextCPCoords = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
 		int hValue = pod.heuristicEval(nextCPCoords, runnerPosition);
+		cout << INT_MAX - hValue << endl;
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
 		addChild(child);
 	}
+	cout << endl;
 }
 
 //*************************************************************************************************************
@@ -1735,7 +1737,9 @@ void Minimax::clear() {
 //*************************************************************************************************************
 
 MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions) {
-	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
+	node->createChildren(allPossibleActions, MM_MAXIMIZE);
+
+	if (0 == node->getChildrenCount() || node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node, podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
 		
@@ -1745,8 +1749,6 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta,
 	}
 
 	MinMaxResult res = MinMaxResult(NULL, INT_MIN);
-
-	node->createChildren(allPossibleActions, MM_MAXIMIZE);
 
 	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
 		MinMaxResult minRes = minimize(node->getChildI(childIdx), podRole, alpha, beta, allPossibleActions);
@@ -1772,7 +1774,9 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta,
 //*************************************************************************************************************
 
 MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions) {
-	if (node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
+	node->createChildren(allPossibleActions, MM_MINIMIZE);
+
+	if (0 == node->getChildrenCount() || node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node, podRole);
 		MinMaxResult res = MinMaxResult(node, eval);
 
@@ -1783,9 +1787,7 @@ MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta,
 
 	MinMaxResult res = MinMaxResult(NULL, INT_MAX);
 
-	node->createChildren(allPossibleActions, MM_MINIMIZE);
-
-	for (int childIdx = 0; childIdx < POD_ACTIONS_COUNT; ++childIdx) {
+	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
 		MinMaxResult maxRes = maximize(node->getChildI(childIdx), podRole, alpha, beta, allPossibleActions);
 
 		if (maxRes.evaluationValue < res.evaluationValue) {
