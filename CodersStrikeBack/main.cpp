@@ -60,6 +60,8 @@ const int DIST_TO_NEXT_CP_WEIGHT = 3;
 const int ANGLE_TO_NEXT_CP_WEIGHT = 200;
 const int DIST_TO_HUNTER_WEIGHT = 5;
 const int ANGLE_HUNTER_WEIGHT = 100;
+const int DIST_TO_RUNNER_WEIGHT = 5;
+const int ANGLE_TO_RUNNER_WEIGHT = 100;
 
 const int ENEMY_DIST_TO_NEXT_CP_WEIGHT = 200;
 const int ENEMY_ANGLE_TO_NEXT_CP_WEIGHT = 1500;
@@ -430,7 +432,7 @@ public:
 	void incrementPassedCPCounter();
 	void decreaseTurnsLeft();
 	void heuristicSimulate(Action* action);
-	int heuristicEval(Coords nextCheckPoint, MaximizeMinimize mm) const;
+	int heuristicEval(Coords nextCheckPoint, Coords runnerPosition) const;
 
 	void computeBounce(Entity* entity) override;
 	bool sheildOn() const override;
@@ -748,7 +750,7 @@ void Pod::heuristicSimulate(Action* action) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Pod::heuristicEval(Coords nextCheckPoint, MaximizeMinimize mm) const {
+int Pod::heuristicEval(Coords nextCheckPoint, Coords runnerPosition) const {
 	int eval = 0;
 
 	if (PR_MY_RUNNER == role || PR_ENEMY_RUNNER == role) {
@@ -762,7 +764,13 @@ int Pod::heuristicEval(Coords nextCheckPoint, MaximizeMinimize mm) const {
 			(ANGLE_TO_NEXT_CP_WEIGHT * (int)angleToNextCP);
 	}
 	else {
+		float distToRunner = position.distance(runnerPosition);
+		float angleToRunner = calcAngleToTarget(runnerPosition);
 
+		eval =
+			INT_MAX -
+			(DIST_TO_RUNNER_WEIGHT * (int)distToRunner) -
+			(ANGLE_TO_RUNNER_WEIGHT * (int)angleToRunner);
 	}
 
 	return eval;
@@ -1539,16 +1547,23 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 		Action actionForChild = allPossibleActions[actionIdx];
 
 		Pod pod = *(state->getPod(TSPI_MY_POD_IDX));
-	
+
 		if (MM_MINIMIZE == mm) {
 			pod = *(state->getPod(TSPI_ENEMY_POD_IDX));
 		}
 
 		pod.heuristicSimulate(&actionForChild);
 
-		// May be here check for the distance between runner pod and next CP or between hunter and runner
+		Coords runnerPosition;
+		if (PR_MY_HUNTER == pod.getRole()) {
+			runnerPosition = state->getPodByRole(PR_ENEMY_RUNNER)->getPosition();
+		}
+		else if (PR_ENEMY_HUNTER == pod.getRole()) {
+			runnerPosition = state->getPodByRole(PR_MY_RUNNER)->getPosition();
+		}
+
 		Coords nextCPCoords = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
-		int hValue = pod.heuristicEval(nextCPCoords, mm);
+		int hValue = pod.heuristicEval(nextCPCoords, runnerPosition);
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
