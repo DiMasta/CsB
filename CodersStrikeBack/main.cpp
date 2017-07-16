@@ -1564,11 +1564,11 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 
 		Coords nextCPCoords = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
 		int hValue = pod.heuristicEval(nextCPCoords, runnerPosition);
-		cout << INT_MAX - hValue << endl;
+		cout << hValue << endl;
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
-		addChild(child);
+		//addChild(child);
 	}
 	cout << endl;
 }
