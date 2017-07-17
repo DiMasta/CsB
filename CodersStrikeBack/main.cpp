@@ -18,7 +18,7 @@ const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
 const int MINIMAX_DEPTH = 1;
-const int PRINT_MINIMAX_TREE_TO_FILE = 0;
+const int PRINT_MINIMAX_TREE_TO_FILE = 1;
 const int SIM_TURNS = 2;
 
 using namespace std;
@@ -59,7 +59,7 @@ const int LAPS_COUNT = 3;
 
 const int PASSED_CPS_WEIGHT = 5000;
 const int DIST_TO_NEXT_CP_WEIGHT = 3;
-const int ANGLE_TO_NEXT_CP_WEIGHT = 200;
+const int ANGLE_TO_NEXT_CP_WEIGHT = 20;
 const int DIST_TO_HUNTER_WEIGHT = 5;
 const int ANGLE_HUNTER_WEIGHT = 100;
 const int DIST_TO_RUNNER_WEIGHT = 5;
@@ -761,18 +761,16 @@ int Pod::heuristicEval(Coords nextCheckPoint, Coords runnerPosition) const {
 		float angleToNextCP = calcAngleToTarget(nextCheckPoint);
 
 		eval =
-			INT_MAX -
-			(DIST_TO_NEXT_CP_WEIGHT * (int)nextCPDistance) -
-			(ANGLE_TO_NEXT_CP_WEIGHT * (int)angleToNextCP);
+			(/*DIST_TO_NEXT_CP_WEIGHT **/ (int)nextCPDistance)/* +
+			(ANGLE_TO_NEXT_CP_WEIGHT * (int)angleToNextCP)*/;
 	}
 	else {
 		float distToRunner = position.distance(runnerPosition);
 		float angleToRunner = calcAngleToTarget(runnerPosition);
 
 		eval =
-			INT_MAX -
-			(DIST_TO_RUNNER_WEIGHT * (int)distToRunner) -
-			(ANGLE_TO_RUNNER_WEIGHT * (int)angleToRunner);
+			(/*DIST_TO_RUNNER_WEIGHT **/ (int)distToRunner)/* +
+			(ANGLE_TO_RUNNER_WEIGHT * (int)angleToRunner)*/;
 	}
 
 	return eval;
@@ -1554,17 +1552,30 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 			pod = *(state->getPod(TSPI_ENEMY_POD_IDX));
 		}
 
+		Coords podPosBeforeSim = pod.getPosition();
+		float distanceToTarget = pod.getPosition().distance(state->getCheckPoint(pod.getNextCheckPointId())->getPosition());
+
 		pod.heuristicSimulate(&actionForChild);
 
-		PodRole podRunnerRole = PR_MY_RUNNER;
+		Coords runnerPosition;
 		if (PR_MY_HUNTER == pod.getRole()) {
-			podRunnerRole = PR_ENEMY_RUNNER;
+			runnerPosition = state->getPodByRole(PR_ENEMY_RUNNER)->getPosition();
 		}
-		Coords runnerPosition = state->getPodByRole(podRunnerRole)->getPosition();
+		else if (PR_ENEMY_HUNTER == pod.getRole()) {
+			runnerPosition = state->getPodByRole(PR_MY_RUNNER)->getPosition();
+		}
 
 		Coords nextCPCoords = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
 		int hValue = pod.heuristicEval(nextCPCoords, runnerPosition);
-		cout << hValue << endl;
+
+		Coords firstTurnCoords(7779, 7416);
+		Coords secondTurnCoords(7874, 7383);
+		Coords thirdTurnCoords(8049, 7324);
+		float maxDistanceWithMaxThrust = firstTurnCoords.distance(secondTurnCoords);
+		float maxDistanceWithMaxThrust1 = secondTurnCoords.distance(thirdTurnCoords);
+
+
+		cout << podPosBeforeSim.distance(pod.getPosition()) << endl;
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
