@@ -1568,7 +1568,7 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 
 		// If the tested action is good create a child and add it
 		Node* child = createChild(mm, actionForChild, actionIdx);
-		//addChild(child);
+		addChild(child);
 	}
 	cout << endl;
 }
@@ -1737,7 +1737,9 @@ void Minimax::clear() {
 //*************************************************************************************************************
 
 MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions) {
-	node->createChildren(allPossibleActions, MM_MAXIMIZE);
+	if (node->getNodeDepth() < maxTreeDepth) {
+		node->createChildren(allPossibleActions, MM_MAXIMIZE);
+	}
 
 	if (0 == node->getChildrenCount() || node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node, podRole);
@@ -1774,7 +1776,9 @@ MinMaxResult Minimax::maximize(Node* node, PodRole podRole, int alpha, int beta,
 //*************************************************************************************************************
 
 MinMaxResult Minimax::minimize(Node* node, PodRole podRole, int alpha, int beta, Action* allPossibleActions) {
-	node->createChildren(allPossibleActions, MM_MINIMIZE);
+	if (node->getNodeDepth() < maxTreeDepth) {
+		node->createChildren(allPossibleActions, MM_MINIMIZE);
+	}
 
 	if (0 == node->getChildrenCount() || node->getNodeDepth() == maxTreeDepth || node->getState()->isTerminal()) {
 		int eval = evaluateState(node, podRole);
