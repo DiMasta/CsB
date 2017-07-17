@@ -51,7 +51,9 @@ const int FIRST_GOAL_CP_ID = 1;
 const int POD_DIRECTIONS_COUNT = 5;
 const int POD_THRUSTS_COUNT = 3;
 const int POD_SHEILD_FLAGS_COUNT = 2;
-const int ALL_POSSIBLE_POD_ACTIONS_COUNT = POD_DIRECTIONS_COUNT * POD_THRUSTS_COUNT * POD_SHEILD_FLAGS_COUNT;
+
+// 5 Directions with all thrusts without sheild and 5 directions with sheild
+const int ALL_POSSIBLE_POD_ACTIONS_COUNT = (POD_DIRECTIONS_COUNT * POD_THRUSTS_COUNT) + POD_DIRECTIONS_COUNT;
 
 const int LAPS_COUNT = 3;
 
@@ -1554,13 +1556,11 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 
 		pod.heuristicSimulate(&actionForChild);
 
-		Coords runnerPosition;
+		PodRole podRunnerRole = PR_MY_RUNNER;
 		if (PR_MY_HUNTER == pod.getRole()) {
-			runnerPosition = state->getPodByRole(PR_ENEMY_RUNNER)->getPosition();
+			podRunnerRole = PR_ENEMY_RUNNER;
 		}
-		else if (PR_ENEMY_HUNTER == pod.getRole()) {
-			runnerPosition = state->getPodByRole(PR_MY_RUNNER)->getPosition();
-		}
+		Coords runnerPosition = state->getPodByRole(podRunnerRole)->getPosition();
 
 		Coords nextCPCoords = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
 		int hValue = pod.heuristicEval(nextCPCoords, runnerPosition);
@@ -2449,14 +2449,20 @@ void Game::fillAllPossibleActions() {
 
 	for (int dirIdx = 0; dirIdx < POD_DIRECTIONS_COUNT; ++dirIdx) {
 		for (int thrustIdx = 0; thrustIdx < POD_THRUSTS_COUNT; ++thrustIdx) {
-			for (int sheildFlagIdx = 0; sheildFlagIdx < POD_SHEILD_FLAGS_COUNT; ++sheildFlagIdx) {
-				allPossibleActions[actionIdx].setDirectionAngle(DIRECTION_ANGLES[dirIdx]);
-				allPossibleActions[actionIdx].setThrust(THRUST_VALUES[thrustIdx]);
-				allPossibleActions[actionIdx].setUseSheild(SHEILD_FLAGS[sheildFlagIdx]);
+			allPossibleActions[actionIdx].setDirectionAngle(DIRECTION_ANGLES[dirIdx]);
+			allPossibleActions[actionIdx].setThrust(THRUST_VALUES[thrustIdx]);
+			allPossibleActions[actionIdx].setUseSheild(false);
 
-				++actionIdx;
-			}
+			++actionIdx;
 		}
+	}
+
+	for (int dirIdx = 0; dirIdx < POD_DIRECTIONS_COUNT; ++dirIdx) {
+		allPossibleActions[actionIdx].setDirectionAngle(DIRECTION_ANGLES[dirIdx]);
+		allPossibleActions[actionIdx].setThrust(0);
+		allPossibleActions[actionIdx].setUseSheild(true);
+
+		++actionIdx;
 	}
 }
 
