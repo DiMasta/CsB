@@ -13,13 +13,13 @@
 #define M_PI 3.14159265358979323846
 //#define TESTS
 
-const int USE_HARDCODED_INPUT = 1;
+const int USE_HARDCODED_INPUT = 0;
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
-const int MINIMAX_DEPTH = 1;
-const int PRINT_MINIMAX_TREE_TO_FILE = 1;
-const int SIM_TURNS = 2;
+const int MINIMAX_DEPTH = 8;
+const int PRINT_MINIMAX_TREE_TO_FILE = 0;
+const int SIM_TURNS = 11;
 
 using namespace std;
 
@@ -281,6 +281,22 @@ void Action::printAction() const {
 
 void Action::debug() const {
 }
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+struct ActionValue {
+	Action action;
+	int evalValue;
+	
+
+	ActionValue(Action action, int evalValue) : action(action), evalValue(evalValue) {}
+
+	bool operator < (const ActionValue& obj) const {
+		return (evalValue < obj.evalValue);
+	}
+};
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -738,6 +754,8 @@ void Pod::decreaseTurnsLeft() {
 
 void Pod::heuristicSimulate(Action* action) {
 	Coords podTarget = calcPodTarget(action->getDirectionAngle());
+	action->setTarget(podTarget);
+
 	rotate(podTarget);
 
 	int thrust = action->getThrust();
@@ -761,16 +779,18 @@ int Pod::heuristicEval(Coords nextCheckPoint, Coords runnerPosition) const {
 		float angleToNextCP = calcAngleToTarget(nextCheckPoint);
 
 		eval =
-			(/*DIST_TO_NEXT_CP_WEIGHT **/ (int)nextCPDistance)/* +
-			(ANGLE_TO_NEXT_CP_WEIGHT * (int)angleToNextCP)*/;
+			INT_MAX -
+			(DIST_TO_NEXT_CP_WEIGHT * (int)nextCPDistance) -
+			(ANGLE_TO_NEXT_CP_WEIGHT * (int)angleToNextCP);
 	}
 	else {
 		float distToRunner = position.distance(runnerPosition);
 		float angleToRunner = calcAngleToTarget(runnerPosition);
 
 		eval =
-			(/*DIST_TO_RUNNER_WEIGHT **/ (int)distToRunner)/* +
-			(ANGLE_TO_RUNNER_WEIGHT * (int)angleToRunner)*/;
+			INT_MAX -
+			(DIST_TO_RUNNER_WEIGHT * (int)distToRunner) -
+			(ANGLE_TO_RUNNER_WEIGHT * (int)angleToRunner);
 	}
 
 	return eval;
@@ -1542,6 +1562,8 @@ void Node::copyState(State* state) {
 //*************************************************************************************************************
 
 void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
+	vector<ActionValue> allActionEvaled;
+
 	// Apply all actions to the current state and choose the best of them using light eval function
 	for (int actionIdx = 0; actionIdx < ALL_POSSIBLE_POD_ACTIONS_COUNT; ++actionIdx) {
 		Action actionForChild = allPossibleActions[actionIdx];
@@ -1552,10 +1574,19 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 			pod = *(state->getPod(TSPI_ENEMY_POD_IDX));
 		}
 
-		Coords podPosBeforeSim = pod.getPosition();
-		float distanceToTarget = pod.getPosition().distance(state->getCheckPoint(pod.getNextCheckPointId())->getPosition());
+		Coords nextCPPosition = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
+
+		//Coords podPosBeforeSim = pod.getPosition();
+		//float distanceToTargetBeforeSim = pod.getPosition().distance(nextCPPosition);
+		//float podAngleBeforeSim = pod.getAngle();
+		//float podAngleToNextCPBeforeSim = pod.calcAngleToTarget(nextCPPosition);
 
 		pod.heuristicSimulate(&actionForChild);
+
+		//Coords podPosAfterSim = pod.getPosition();
+		//float distanceToTargetAfterSim = pod.getPosition().distance(nextCPPosition);
+		//float podAngleAfterSim = pod.getAngle();
+		//float podAngleToNextCPAfterSim = pod.calcAngleToTarget(nextCPPosition);
 
 		Coords runnerPosition;
 		if (PR_MY_HUNTER == pod.getRole()) {
@@ -1568,20 +1599,24 @@ void Node::createChildren(Action* allPossibleActions, MaximizeMinimize mm) {
 		Coords nextCPCoords = state->getCheckPoint(pod.getNextCheckPointId())->getPosition();
 		int hValue = pod.heuristicEval(nextCPCoords, runnerPosition);
 
-		Coords firstTurnCoords(7779, 7416);
-		Coords secondTurnCoords(7874, 7383);
-		Coords thirdTurnCoords(8049, 7324);
-		float maxDistanceWithMaxThrust = firstTurnCoords.distance(secondTurnCoords);
-		float maxDistanceWithMaxThrust1 = secondTurnCoords.distance(thirdTurnCoords);
+		ActionValue av(actionForChild, hValue);
+		allActionEvaled.push_back(av);
+	}
 
+	sort(allActionEvaled.begin(), allActionEvaled.end());
 
-		cout << podPosBeforeSim.distance(pod.getPosition()) << endl;
+	int actionIdx = 0;
+	for (std::vector<ActionValue>::reverse_iterator rit = allActionEvaled.rbegin(); rit != allActionEvaled.rend(); ++rit) {
+		if (actionIdx >= POD_ACTIONS_COUNT) {
+			break;
+		}
+		
+		Action actionForChild = rit->action;
 
 		// If the tested action is good create a child and add it
-		Node* child = createChild(mm, actionForChild, actionIdx);
+		Node* child = createChild(mm, actionForChild, actionIdx++);
 		addChild(child);
 	}
-	cout << endl;
 }
 
 //*************************************************************************************************************
