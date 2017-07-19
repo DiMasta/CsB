@@ -2097,7 +2097,7 @@ public:
 	void turnEnd();
 	void play();
 
-	void makeFirstTurn() const;
+	void makeFirstTurn() /*const*/;
 	Action chooseAction(State* state, PodRole role);
 	void makeSubStates();
 	void clearSubStates();
@@ -2130,6 +2130,8 @@ private:
 
 	// Turn inputs
 	int podXCoord, podYCoord, podVx, podVy, podAngle, podNextCheckPointId;
+
+	Coords lastTurnPosition;
 };
 
 //*************************************************************************************************************
@@ -2394,14 +2396,30 @@ void Game::makeTurn() {
 		PodRole hunterRole = USE_INVALID_ROLES ? PR_INVALID : PR_MY_HUNTER;
 
 		// MiniMax
-		Action runnerAction = chooseAction(myRunnerSubState, runnerRole);
-		resetMiniMax();
+		//Action runnerAction = chooseAction(myRunnerSubState, runnerRole);
+		//resetMiniMax();
 
-		Action hunterAction = chooseAction(myHunterSubState, hunterRole);
-		resetMiniMax();
+		//Action hunterAction = chooseAction(myHunterSubState, hunterRole);
+		//resetMiniMax();
 
-		runnerAction.printAction();
-		hunterAction.printAction();
+		// Check the index of the runner and see which to print first
+		//runnerAction.printAction();
+		//hunterAction.printAction();
+
+		//print nextCP - velocity*3, thrust=100
+		Coords velocity;
+		velocity.xCoord = turnState->getPod(1)->getPosition().xCoord - lastTurnPosition.xCoord;
+		velocity.yCoord = turnState->getPod(1)->getPosition().yCoord - lastTurnPosition.yCoord;
+
+		Coords coordsToGo;
+		coordsToGo.xCoord = turnState->getCheckPoint(turnState->getPod(1)->getNextCheckPointId())->getPosition().xCoord - (3 * velocity.xCoord);
+		coordsToGo.yCoord = turnState->getCheckPoint(turnState->getPod(1)->getNextCheckPointId())->getPosition().yCoord - (3 * velocity.yCoord);
+
+		lastTurnPosition.xCoord = turnState->getPod(1)->getPosition().xCoord;
+		lastTurnPosition.yCoord = turnState->getPod(1)->getPosition().yCoord;
+
+		cout << "1000 1000 100" << endl;
+		cout << coordsToGo.xCoord << " " << coordsToGo.yCoord << " 100" << endl;
 	}
 }
 
@@ -2428,12 +2446,15 @@ void Game::play() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Game::makeFirstTurn() const {
+void Game::makeFirstTurn() /*const*/ {
 	// Aim the two pods to the first CheckPoint
 	CheckPoint* firstCheckPoint = turnState->getCheckPoint(FIRST_GOAL_CP_ID);
 	Coords firstCheckPointCoords = firstCheckPoint->getPosition();
 	cout << firstCheckPointCoords.xCoord << ' ' << firstCheckPointCoords.yCoord << ' ' << MAX_THRUST << endl;
 	cout << firstCheckPointCoords.xCoord << ' ' << firstCheckPointCoords.yCoord << ' ' << BOOST << endl;
+
+	lastTurnPosition.xCoord = turnState->getPod(1)->getPosition().xCoord;
+	lastTurnPosition.yCoord = turnState->getPod(1)->getPosition().yCoord;
 }
 
 //*************************************************************************************************************
