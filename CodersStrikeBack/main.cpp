@@ -2396,30 +2396,30 @@ void Game::makeTurn() {
 		PodRole hunterRole = USE_INVALID_ROLES ? PR_INVALID : PR_MY_HUNTER;
 
 		// MiniMax
-		//Action runnerAction = chooseAction(myRunnerSubState, runnerRole);
-		//resetMiniMax();
+		Action runnerAction = chooseAction(myRunnerSubState, runnerRole);
+		resetMiniMax();
 
-		//Action hunterAction = chooseAction(myHunterSubState, hunterRole);
-		//resetMiniMax();
+		Action hunterAction = chooseAction(myHunterSubState, hunterRole);
+		resetMiniMax();
 
 		// Check the index of the runner and see which to print first
-		//runnerAction.printAction();
-		//hunterAction.printAction();
+		runnerAction.printAction();
+		hunterAction.printAction();
 
 		//print nextCP - velocity*3, thrust=100
-		Coords velocity;
-		velocity.xCoord = turnState->getPod(1)->getPosition().xCoord - lastTurnPosition.xCoord;
-		velocity.yCoord = turnState->getPod(1)->getPosition().yCoord - lastTurnPosition.yCoord;
-
-		Coords coordsToGo;
-		coordsToGo.xCoord = turnState->getCheckPoint(turnState->getPod(1)->getNextCheckPointId())->getPosition().xCoord - (3 * velocity.xCoord);
-		coordsToGo.yCoord = turnState->getCheckPoint(turnState->getPod(1)->getNextCheckPointId())->getPosition().yCoord - (3 * velocity.yCoord);
-
-		lastTurnPosition.xCoord = turnState->getPod(1)->getPosition().xCoord;
-		lastTurnPosition.yCoord = turnState->getPod(1)->getPosition().yCoord;
-
-		cout << "1000 1000 100" << endl;
-		cout << coordsToGo.xCoord << " " << coordsToGo.yCoord << " 100" << endl;
+		//Coords velocity;
+		//velocity.xCoord = turnState->getPod(1)->getPosition().xCoord - lastTurnPosition.xCoord;
+		//velocity.yCoord = turnState->getPod(1)->getPosition().yCoord - lastTurnPosition.yCoord;
+		//
+		//Coords coordsToGo;
+		//coordsToGo.xCoord = turnState->getCheckPoint(turnState->getPod(1)->getNextCheckPointId())->getPosition().xCoord - (3 * velocity.xCoord);
+		//coordsToGo.yCoord = turnState->getCheckPoint(turnState->getPod(1)->getNextCheckPointId())->getPosition().yCoord - (3 * velocity.yCoord);
+		//
+		//lastTurnPosition.xCoord = turnState->getPod(1)->getPosition().xCoord;
+		//lastTurnPosition.yCoord = turnState->getPod(1)->getPosition().yCoord;
+		//
+		//cout << "1000 1000 100" << endl;
+		//cout << coordsToGo.xCoord << " " << coordsToGo.yCoord << " 100" << endl;
 	}
 }
 
@@ -2453,8 +2453,8 @@ void Game::makeFirstTurn() /*const*/ {
 	cout << firstCheckPointCoords.xCoord << ' ' << firstCheckPointCoords.yCoord << ' ' << MAX_THRUST << endl;
 	cout << firstCheckPointCoords.xCoord << ' ' << firstCheckPointCoords.yCoord << ' ' << BOOST << endl;
 
-	lastTurnPosition.xCoord = turnState->getPod(1)->getPosition().xCoord;
-	lastTurnPosition.yCoord = turnState->getPod(1)->getPosition().yCoord;
+	//lastTurnPosition.xCoord = turnState->getPod(1)->getPosition().xCoord;
+	//lastTurnPosition.yCoord = turnState->getPod(1)->getPosition().yCoord;
 }
 
 //*************************************************************************************************************
