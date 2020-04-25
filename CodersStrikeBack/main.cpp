@@ -11,9 +11,9 @@
 #include <fstream>
 
 #define M_PI 3.14159265358979323846
+#define USE_HARDCODED_INPUT
 //#define TESTS
 
-const int USE_HARDCODED_INPUT = 0;
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
 const int POD_ACTIONS_COUNT = 3; // For debuging
@@ -2199,7 +2199,7 @@ void Game::gameLoop() {
 		makeTurn();
 		turnEnd();
 
-		if (USE_HARDCODED_INPUT) {
+#ifdef USE_HARDCODED_INPUT
 			clock_t end = clock();
 			double elapsedMilliSecs = double(end - begin);
 		
@@ -2212,38 +2212,36 @@ void Game::gameLoop() {
 				break;
 			}
 		}
-	}
+#endif // USE_HARDCODED_INPUT
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::getGameInput() {
-	if (USE_HARDCODED_INPUT) {
+#ifdef USE_HARDCODED_INPUT
 		lapsCount = 3; // Profiling
 		checkPointsCount = 4; // Profiling
-	}
-	else {
+#else
 		cin >> lapsCount;
 		cin >> checkPointsCount;
 		//cerr << lapsCount << endl;
 		//cerr << checkPointsCount << endl;
-	}
+#endif // USE_HARDCODED_INPUT
 
 	checkPoints = new CheckPoint*[checkPointsCount];
 
 	int checkPointXCoord, checkPointYCoord;
 	for (int cpIdx = 0; cpIdx < checkPointsCount; ++cpIdx) {
-		if (USE_HARDCODED_INPUT) {
+#ifdef USE_HARDCODED_INPUT
 			if (0 == cpIdx) { checkPointXCoord = 7982; checkPointYCoord = 7873; }
 			if (1 == cpIdx) { checkPointXCoord = 13284; checkPointYCoord = 5513; }
 			if (2 == cpIdx) { checkPointXCoord = 9539; checkPointYCoord = 1380; }
 			if (3 == cpIdx) { checkPointXCoord = 3637; checkPointYCoord = 7873; }
-		}
-		else {
+#else
 			cin >> checkPointXCoord >> checkPointYCoord;
 			//cerr << checkPointXCoord << " " << checkPointYCoord << endl;
-		}
+#endif // USE_HARDCODED_INPUT
 
 		checkPoints[cpIdx] = new CheckPoint(Coords((float)checkPointXCoord, (float)checkPointYCoord), Coords(), CHECKPOINT_RADIUS, cpIdx);
 	}
@@ -2341,13 +2339,12 @@ void Game::getTurnInput() {
 	//cerr << "case " << turnsCount << ":" << endl;
 	for (int podIdx = 0; podIdx < GAME_PODS_COUNT; ++podIdx) {
 
-		if (USE_HARDCODED_INPUT) {
+#ifdef USE_HARDCODED_INPUT
 			getHardCodedInput(podIdx);
-		}
-		else {
+#else
 			cin >> podXCoord >> podYCoord >> podVx >> podVy >> podAngle >> podNextCheckPointId;
 			//cerr << "\tif (" << podIdx << "== podIdx) { assignInput(" << podXCoord << ", " << podYCoord << ", " << podVx << ", " << podVy << ", " << podAngle << ", " << podNextCheckPointId << "); }" << endl;
-		}
+#endif // USE_HARDCODED_INPUT
 		
 		Pod** pods = turnState->getPods();
 		pods[podIdx]->setPosition(Coords((float)podXCoord, (float)podYCoord));
