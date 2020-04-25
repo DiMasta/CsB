@@ -11,8 +11,8 @@
 #include <fstream>
 
 #define M_PI 3.14159265358979323846
-#define USE_HARDCODED_INPUT
-//#define TESTS
+//#define USE_HARDCODED_INPUT
+#define TESTS
 
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
@@ -2200,19 +2200,19 @@ void Game::gameLoop() {
 		turnEnd();
 
 #ifdef USE_HARDCODED_INPUT
-			clock_t end = clock();
-			double elapsedMilliSecs = double(end - begin);
+		clock_t end = clock();
+		double elapsedMilliSecs = double(end - begin);
 		
-			cerr << endl;
-			cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
-			cerr << endl;
+		cerr << endl;
+		cerr << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
+		cerr << endl;
 
-			// Profiling
-			if (SIM_TURNS == turnsCount) {
-				break;
-			}
+		// Profiling
+		if (SIM_TURNS == turnsCount) {
+			break;
 		}
 #endif // USE_HARDCODED_INPUT
+	}
 }
 
 //*************************************************************************************************************
