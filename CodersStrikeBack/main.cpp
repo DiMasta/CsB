@@ -11,8 +11,8 @@
 #include <fstream>
 
 #define M_PI 3.14159265358979323846
-//#define USE_HARDCODED_INPUT
-#define TESTS
+#define USE_HARDCODED_INPUT
+//#define TESTS
 
 const int USE_INVALID_ROLES = 0;
 //const int POD_ACTIONS_COUNT = 7;
