@@ -21,11 +21,12 @@
 
 using namespace std;
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 #define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
+#define M_PI 3.14159265358979323846
 
 //static const string INPUT_FILE_NAME = "input.txt";
 static const string INPUT_FILE_NAME = "input_classic_track.txt";
@@ -56,6 +57,8 @@ static constexpr unsigned int THRUST_MASK = 0b0000'0000'0000'0000'0000'0000'1111
 static constexpr unsigned int SHIELD_FLAG = 0b0000'0000'0000'0000'0100'0000'0000'0000;
 static constexpr unsigned int BOOST_FLAG  = 0b0000'0000'0000'0000'1000'0000'0000'0000;
 
+static constexpr float MAX_ANGLE_PER_TURN = 18.f;
+
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
 //-------------------------------------------------------------------------------------------------------------
@@ -70,13 +73,44 @@ struct Coords {
 	{}
 
 	Coords(int x, int y) :
+		x{ static_cast<float>(x) },
+		y{ static_cast<float>(y) }
+	{}
+
+	Coords(float x, float y) :
 		x{ x },
 		y{ y }
 	{}
 
-	int x; ///< X Coordinate
-	int y; ///< Y Coordinate
+	/// Calculate the square of the distance to the given point
+	/// @param[in] point the point to which to calculate distance
+	/// @return the square of the distance to point
+	float distanceSquare(const Coords point) const;
+
+	/// Calculate the distance to the given point
+	/// @param[in] point the point to which to calculate distance
+	/// @return the distance to point
+	float distance(const Coords point) const;
+
+	float x; ///< X Coordinate
+	float y; ///< Y Coordinate
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Coords::distanceSquare(Coords point) const {
+	return
+		(x - point.x) * (x - point.x) +
+		(y - point.y) * (y - point.y);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Coords::distance(Coords point) const {
+	return sqrt(distanceSquare(point));
+}
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -206,13 +240,38 @@ public:
 		const int nextCheckPointId
 	);
 
+	/// Rotate Pod towards the given target, obeying the rules for rotation
+	/// @param[in] target the target point towards which to rotate the Pod
+	void rotate(const Coords target);
+
+	/// Activate Shield which will hold for 3 turns
+	void activateShield();
+
+	/// Apply the given thrust power to the speed of the Pod
+	/// @param[in] thrust the thrust power to apply
+	void applyThurst(const int thrust);
+
+	/// Move the pod for the given period of time
+	/// @param[in] time the period of time to consider 1.f means the whole turn
+	void move(const float time);
+
+	/// Calculate angle, clamped and clock oriented to turn towards the given target point
+	/// @param[in] target the point towards which to turn
+	/// @return the angle for rotation
+	float calcDircetionToTurn(const Coords target) const;
+
+	/// Calculate angle to turn towards the given target point
+	/// @param[in] target the point towards which to turn
+	/// @return the angle for rotation
+	float calcAngleToTarget(const Coords target) const;
+
 private:
 	Coords initialTurnPosition; ///< Where the pod starts the turn
 	Coords position; ///< Where it is on the track
 	Coords initialTurnVelocity; ///< The speed vector of the Pod at the start of the turn
 	Coords velocity; ///< The speed vector of the Pod
-	int initialTurnAngle; ///< The facing angle of the Pod at the start of the turn
-	int angle; ///< The facing angle of the Pod
+	float initialTurnAngle; ///< The facing angle of the Pod at the start of the turn
+	float angle; ///< The facing angle of the Pod
 	int initialTurnNextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next at the start of the turn
 	int nextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next
 
@@ -258,10 +317,99 @@ void Pod::fillData(
 	this->position = { x, y };
 	this->initialTurnVelocity= { vx, vy };
 	this->velocity = { vx, vy };
-	this->initialTurnAngle = angle;
-	this->angle = angle;
+	this->initialTurnAngle = static_cast<float>(angle);
+	this->angle = static_cast<float>(angle);
 	this->initialTurnNextCheckopoint = nextCheckPointId;
 	this->nextCheckopoint= nextCheckPointId;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::rotate(const Coords target) {
+	float angleToTurn = calcDircetionToTurn(target);
+
+	// Can't turn by more than 18 in one turn
+	if (angleToTurn > MAX_ANGLE_PER_TURN) {
+		angleToTurn = MAX_ANGLE_PER_TURN;
+	}
+	else if (angleToTurn < -MAX_ANGLE_PER_TURN) {
+		angleToTurn = -MAX_ANGLE_PER_TURN;
+	}
+
+	angle += angleToTurn;
+
+	// The % operator is slow. If we can avoid it, it's better.
+	if (angle >= 360.f) {
+		angle = angle - 360.f;
+	}
+	else if (angle < 0.f) {
+		angle += 360.f;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Pod::calcDircetionToTurn(const Coords target) const {
+	float direction = 0.f;
+
+	float angleToTarget = calcAngleToTarget(target);
+
+	// To know whether we should turn clockwise or not we look at the two ways and keep the smallest
+	// The ternary operators replace the use of a modulo operator which would be slower
+	float clockwise = angle <= angleToTarget ? angleToTarget - angle : 360.f - angle + angleToTarget;
+	float counterClockWise = angle >= angleToTarget ? angle - angleToTarget : angle + 360.f - angleToTarget;
+
+	if (clockwise < counterClockWise) {
+		direction = clockwise;
+	}
+	else {
+		// We return a negative angle if we must rotate counterClockWise
+		direction = -counterClockWise;
+	}
+
+	return direction;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Pod::calcAngleToTarget(const Coords target) const {
+	float distanceToTarget = position.distance(target);
+	float dx = (target.x - position.x) / distanceToTarget;
+	float dy = (target.y - position.y) / distanceToTarget;
+
+	// Simple trigonometry. We multiply by 180.f / PI to convert radiants to degrees.
+	float angleToTarget = acos(dx) * 180.f / static_cast<float>(M_PI);
+
+	// If the point I want is below me, I have to shift the angle for it to be correct
+	if (dy < 0.f) {
+		angleToTarget = 360.f - angleToTarget;
+	}
+
+	return angleToTarget;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::activateShield() {
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::applyThurst(const int thrust) {
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::move(const float time) {
+
 }
 
 //-------------------------------------------------------------------------------------------------------------
