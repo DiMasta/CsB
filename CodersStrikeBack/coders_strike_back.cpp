@@ -21,13 +21,14 @@
 
 using namespace std;
 
-//#define REDIRECT_INPUT
-#define OUTPUT_GAME_DATA
+#define REDIRECT_INPUT
+//#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
-//#define DEBUG_ONE_TURN
+#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
 
-static const string INPUT_FILE_NAME = "input.txt";
+//static const string INPUT_FILE_NAME = "input.txt";
+static const string INPUT_FILE_NAME = "input_classic_track.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
 static const string EMPTY_STRING = "";
 static const string SPACE = " ";
@@ -47,6 +48,7 @@ static constexpr int BASE_16 = 16;
 static constexpr int INVALID_COORD = -1;
 static constexpr int MAX_CHECKPOINTS_COUNT = 8;
 static constexpr int PODS_COUNT = 4;
+static constexpr int TEAM_PODS_COUNT = PODS_COUNT / 2;
 static constexpr int INITIAL_ANGLE = -1;
 static constexpr int INITIAL_NEXT_CHECKPOINT = 1;
 
@@ -61,6 +63,11 @@ struct Coords {
 	Coords() : 
 		x{ INVALID_COORD },
 		y{ INVALID_COORD }
+	{}
+
+	Coords(int x, int y) :
+		x{ x },
+		y{ y }
 	{}
 
 	int x; ///< X Coordinate
@@ -99,8 +106,7 @@ Track::Track() :
 //*************************************************************************************************************
 
 void Track::addCheckpoint(const int checkpointX, const int checkpointY) {
-	checkpoints[checkpointsCount].x = checkpointX;
-	checkpoints[checkpointsCount].y = checkpointY;
+	checkpoints[checkpointsCount] = { checkpointX, checkpointY };
 	++checkpointsCount;
 }
 
@@ -117,12 +123,32 @@ public:
 	/// Reset the pod to its initial state
 	void reset();
 
+	/// Fill pod data
+	/// @param[in] x the X coordinate of the Pod
+	/// @param[in] y the Y coordinate of the Pod
+	/// @param[in] vx the X coordinate of the velocity of the Pod
+	/// @param[in] vy the Y coordinate of the velocity of the Pod
+	/// @param[in] angle the angle of the Pod
+	/// @param[in] nextCheckPointId the id of the next checkpoint, which the Pod must go throug
+	void fillData(
+		const int x,
+		const int y,
+		const int vx,
+		const int vy,
+		const int angle,
+		const int nextCheckPointId
+	);
+
 private:
-	Coords initialPosition; ///< Where the pod starts the race
+	Coords initialTurnPosition; ///< Where the pod starts the turn
 	Coords position; ///< Where it is on the track
-	Coords speedVector; ///< The speed vector of the Pod
+	Coords initialTurnVelocity; ///< The speed vector of the Pod at the start of the turn
+	Coords velocity; ///< The speed vector of the Pod
+	int initialTurnAngle; ///< The facing angle of the Pod at the start of the turn
 	int angle; ///< The facing angle of the Pod
+	int initialTurnNextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next at the start of the turn
 	int nextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next
+
 	unsigned int flags; ///< Flags need for the simulation and the search algorithm
 };
 
@@ -130,7 +156,9 @@ private:
 //*************************************************************************************************************
 
 Pod::Pod() :
+	initialTurnAngle{ INITIAL_ANGLE },
 	angle{ INITIAL_ANGLE },
+	initialTurnNextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
 	nextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
 	flags{ 0 }
 {
@@ -140,10 +168,33 @@ Pod::Pod() :
 //*************************************************************************************************************
 
 void Pod::reset() {
-	position = initialPosition;
-	angle = INITIAL_ANGLE;
-	nextCheckopoint = INITIAL_NEXT_CHECKPOINT;
+	position = initialTurnPosition;
+	velocity = initialTurnVelocity;
+	angle = initialTurnAngle;
+	nextCheckopoint = initialTurnNextCheckopoint;
 	flags = 0;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::fillData(
+	const int x,
+	const int y,
+	const int vx,
+	const int vy,
+	const int angle,
+	const int nextCheckPointId
+)
+{
+	this->initialTurnPosition = { x, y };
+	this->position = { x, y };
+	this->initialTurnVelocity= { vx, vy };
+	this->velocity = { vx, vy };
+	this->initialTurnAngle = angle;
+	this->angle = angle;
+	this->initialTurnNextCheckopoint = nextCheckPointId;
+	this->nextCheckopoint= nextCheckPointId;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -160,6 +211,24 @@ public:
 	/// @param[in] checkpointY the Y coordinate of the checkpoint ot add
 	void addCheckpoint(const int checkpointX, const int checkpointY);
 
+	/// Fill data for podIdxth pod
+	/// @param[in] podIdx the index of the Pod to be filled
+	/// @param[in] x the X coordinate of the Pod
+	/// @param[in] y the Y coordinate of the Pod
+	/// @param[in] vx the X coordinate of the velocity of the Pod
+	/// @param[in] vy the Y coordinate of the velocity of the Pod
+	/// @param[in] angle the angle of the Pod
+	/// @param[in] nextCheckPointId the id of the next checkpoint, which the Pod must go throug
+	void fillPodData(
+		const int podIdx,
+		const int x,
+		const int y,
+		const int vx,
+		const int vy,
+		const int angle,
+		const int nextCheckPointId
+	);
+
 private:
 	Pod pods[PODS_COUNT]; ///< Pods participating in the race
 	Track track; ///< The track on which the race is performed
@@ -172,6 +241,22 @@ private:
 
 void RaceSimulator::addCheckpoint(const int checkpointX, const int checkpointY) {
 	track.addCheckpoint(checkpointX, checkpointY);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void RaceSimulator::fillPodData(
+	const int podIdx,
+	const int x,
+	const int y,
+	const int vx,
+	const int vy,
+	const int angle,
+	const int nextCheckPointId
+)
+{
+	pods[podIdx].fillData(x, y, vx, vy, angle, nextCheckPointId);
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -302,6 +387,8 @@ void Game::getTurnInput() {
 #ifdef OUTPUT_GAME_DATA
 		cerr << x << SPACE << y << SPACE << vx << SPACE << vy << SPACE << angle << SPACE << nextCheckPointId << endl;
 #endif // OUTPUT_GAME_DATA
+
+		raceSimulator.fillPodData(i, x, y, vx, vy, angle, nextCheckPointId);
 	}
 
 	for (int i = 0; i < 2; i++) {
@@ -316,6 +403,8 @@ void Game::getTurnInput() {
 #ifdef OUTPUT_GAME_DATA
 		cerr << x2 << SPACE << y2 << SPACE << vx2 << SPACE << vy2 << SPACE << angle2 << SPACE << nextCheckPointId2 << endl;
 #endif // OUTPUT_GAME_DATA
+
+		raceSimulator.fillPodData(TEAM_PODS_COUNT + i, x2, y2, vx2, vy2, angle2, nextCheckPointId2);
 	}
 }
 
@@ -372,6 +461,7 @@ int main(int argc, char** argv) {
 #else
 
 #ifdef REDIRECT_INPUT
+	cerr << endl << endl << endl << "!!! REDIRECT_INPUT !!!" << endl << endl << endl;
 	ifstream in(INPUT_FILE_NAME);
 	streambuf *cinbuf = cin.rdbuf();
 	cin.rdbuf(in.rdbuf());
