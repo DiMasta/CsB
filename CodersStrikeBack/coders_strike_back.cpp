@@ -52,6 +52,10 @@ static constexpr int TEAM_PODS_COUNT = PODS_COUNT / 2;
 static constexpr int INITIAL_ANGLE = -1;
 static constexpr int INITIAL_NEXT_CHECKPOINT = 1;
 
+static constexpr unsigned int THRUST_MASK = 0b0000'0000'0000'0000'0000'0000'1111'1111;
+static constexpr unsigned int SHIELD_FLAG = 0b0000'0000'0000'0000'0100'0000'0000'0000;
+static constexpr unsigned int BOOST_FLAG  = 0b0000'0000'0000'0000'1000'0000'0000'0000;
+
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
 //-------------------------------------------------------------------------------------------------------------
@@ -73,6 +77,69 @@ struct Coords {
 	int x; ///< X Coordinate
 	int y; ///< Y Coordinate
 };
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+class Action {
+public:
+	void setTarget(const Coords traget) { this->target = target; }
+
+	/// Update the bits for the thrust power
+	/// @param[in] thrust the thrust power
+	void setThrust(const int thrust);
+
+	/// Extract the thrust value from flags
+	/// @return the integer for the thrust
+	int getThrust() const;
+
+	/// Flags helpers
+	void setFlag(const unsigned int flag);
+	void unsetFlag(const unsigned int flag);
+	bool hasFlag(const unsigned int flag) const;
+
+private:
+	Coords target; ///< Target point for the pod
+	unsigned int flags; ///< Thrust(in the first 8 bits) and flags for shield and boost
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::setThrust(const int thrust) {
+	flags &= ~THRUST_MASK; // First zero out only the bits for the thrust
+	flags |= static_cast<unsigned int>(thrust); // Assign the new thrust
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Action::getThrust() const {
+	return static_cast<int>(THRUST_MASK & flags);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::setFlag(const unsigned int flag) {
+	flags |= flag;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::unsetFlag(const unsigned int flag) {
+	flags &= ~flag;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Action::hasFlag(const unsigned int flag) const {
+	return flag & flags;
+}
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -329,10 +396,19 @@ void Game::gameEnd() {
 
 void Game::gameLoop() {
 	while (!stopGame) {
+#ifdef TIME_MEASURERMENT
+		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+#endif // TIME_MEASURERM
+
 		getTurnInput();
 		turnBegin();
 		makeTurn();
 		turnEnd();
+
+#ifdef TIME_MEASURERMENT
+		chrono::steady_clock::time_point end = chrono::steady_clock::now();
+		cerr << "Turn[" << turnsCount - 1 << "] execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
+#endif // TIME_MEASURERM
 
 #ifdef DEBUG_ONE_TURN
 		break;
@@ -480,7 +556,7 @@ int main(int argc, char** argv) {
 
 #ifdef TIME_MEASURERMENT
 	chrono::steady_clock::time_point end = chrono::steady_clock::now();
-	cerr << "Execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
+	cerr << "Game execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
 #endif // TIME_MEASURERMENT	
 
 #endif // TESTS
