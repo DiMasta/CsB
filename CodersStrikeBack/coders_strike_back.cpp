@@ -52,6 +52,7 @@ static constexpr int PODS_COUNT = 4;
 static constexpr int TEAM_PODS_COUNT = PODS_COUNT / 2;
 static constexpr int INITIAL_ANGLE = -1;
 static constexpr int INITIAL_NEXT_CHECKPOINT = 1;
+static constexpr int SHEILD_TURNS = 3;
 
 static constexpr unsigned int THRUST_MASK = 0b0000'0000'0000'0000'0000'0000'1111'1111;
 static constexpr unsigned int SHIELD_FLAG = 0b0000'0000'0000'0000'0100'0000'0000'0000;
@@ -120,6 +121,7 @@ float Coords::distance(Coords point) const {
 class Action {
 public:
 	void setTarget(const Coords traget) { this->target = target; }
+	Coords getTarget() const { return target; }
 
 	/// Update the bits for the thrust power
 	/// @param[in] thrust the thrust power
@@ -249,11 +251,15 @@ public:
 
 	/// Apply the given thrust power to the speed of the Pod
 	/// @param[in] thrust the thrust power to apply
-	void applyThurst(const int thrust);
+	void applyThrust(const int thrust);
 
 	/// Move the pod for the given period of time
 	/// @param[in] time the period of time to consider 1.f means the whole turn
 	void move(const float time);
+
+	/// Apply the given action, updating all pods parameters for the given action
+	/// @param[in] action the action to apply
+	void applyAction(Action action);
 
 	/// Calculate angle, clamped and clock oriented to turn towards the given target point
 	/// @param[in] target the point towards which to turn
@@ -265,6 +271,11 @@ public:
 	/// @return the angle for rotation
 	float calcAngleToTarget(const Coords target) const;
 
+	/// Flags helpers
+	void setFlag(const unsigned int flag);
+	void unsetFlag(const unsigned int flag);
+	bool hasFlag(const unsigned int flag) const;
+
 private:
 	Coords initialTurnPosition; ///< Where the pod starts the turn
 	Coords position; ///< Where it is on the track
@@ -274,7 +285,9 @@ private:
 	float angle; ///< The facing angle of the Pod
 	int initialTurnNextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next at the start of the turn
 	int nextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next
-
+	int initialSheildTurnsLeft; ///< How many turns are left for the shield at the start of the turn
+	int sheildTurnsLeft; ///< How many turns are left for the shield
+	unsigned int initialTurnFlags; ///< Flags need for the simulation and the search algorithm at the start of the turn
 	unsigned int flags; ///< Flags need for the simulation and the search algorithm
 };
 
@@ -286,6 +299,7 @@ Pod::Pod() :
 	angle{ INITIAL_ANGLE },
 	initialTurnNextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
 	nextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
+	initialTurnFlags{ 0 },
 	flags{ 0 }
 {
 }
@@ -298,7 +312,8 @@ void Pod::reset() {
 	velocity = initialTurnVelocity;
 	angle = initialTurnAngle;
 	nextCheckopoint = initialTurnNextCheckopoint;
-	flags = 0;
+	sheildTurnsLeft = initialSheildTurnsLeft;
+	flags = initialTurnFlags;
 }
 
 //*************************************************************************************************************
@@ -395,14 +410,23 @@ float Pod::calcAngleToTarget(const Coords target) const {
 //*************************************************************************************************************
 
 void Pod::activateShield() {
-
+	setFlag(SHIELD_FLAG);
+	sheildTurnsLeft = SHEILD_TURNS;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::applyThurst(const int thrust) {
+void Pod::applyThrust(const int thrust) {
+	// Don't forget that a pod which has activated its shield cannot accelerate for 3 turns
+	if (!hasFlag(SHIELD_FLAG)) {
+		// Conversion of the angle to radiants
+		float facingAngleDeg = angle * static_cast<float>(M_PI) / 180.f;
 
+		// Trigonometry
+		velocity.x += cos(facingAngleDeg) * thrust;
+		velocity.y += sin(facingAngleDeg) * thrust;
+	}
 }
 
 //*************************************************************************************************************
@@ -410,6 +434,45 @@ void Pod::applyThurst(const int thrust) {
 
 void Pod::move(const float time) {
 
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::applyAction(Action action) {
+	rotate(action.getTarget());
+
+	if (action.hasFlag(SHIELD_FLAG)) {
+		activateShield();
+	}
+
+	int thrustToApply = action.getThrust();
+	if (hasFlag(SHIELD_FLAG)) {
+		thrustToApply = 0;
+	}
+
+	applyThrust(thrustToApply);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::setFlag(const unsigned int flag) {
+	flags |= flag;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::unsetFlag(const unsigned int flag) {
+	flags &= ~flag;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Pod::hasFlag(const unsigned int flag) const {
+	return flag & flags;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -444,10 +507,20 @@ public:
 		const int nextCheckPointId
 	);
 
+	/// Simulate the given array of actions, one by one for each turn
+	/// @param[in] actions the action for each turn to simulate
+	void simulate(const vector<Action[PODS_COUNT]>& turnActions);
+
+	/// Simulate pods for the given actions
+	/// @param podsActiona commands for all pods
+	void simulatePods(const Action (&podsActions)[PODS_COUNT]);
+
+	/// Move all pods at once, considering their parameters
+	void movePods();
+
 private:
 	Pod pods[PODS_COUNT]; ///< Pods participating in the race
 	Track track; ///< The track on which the race is performed
-	// Simulate
 	// Minimax
 };
 
@@ -472,6 +545,33 @@ void RaceSimulator::fillPodData(
 )
 {
 	pods[podIdx].fillData(x, y, vx, vy, angle, nextCheckPointId);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void RaceSimulator::simulate(const vector<Action[PODS_COUNT]>& turnActions) {
+	for (size_t actionIdx = 0; actionIdx < turnActions.size(); ++actionIdx) {
+		simulatePods(turnActions[actionIdx]);
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void RaceSimulator::simulatePods(const Action(&podsActions)[PODS_COUNT]) {
+	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
+		pods[podActionIdx].applyAction(podsActions[podActionIdx]);
+	}
+
+	// Move all pods simulataniously after their actions are applied
+	movePods();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void RaceSimulator::movePods() {
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -546,7 +646,7 @@ void Game::gameLoop() {
 	while (!stopGame) {
 #ifdef TIME_MEASURERMENT
 		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-#endif // TIME_MEASURERM
+#endif // TIME_MEASURERMENT
 
 		getTurnInput();
 		turnBegin();
@@ -556,7 +656,7 @@ void Game::gameLoop() {
 #ifdef TIME_MEASURERMENT
 		chrono::steady_clock::time_point end = chrono::steady_clock::now();
 		cerr << "Turn[" << turnsCount - 1 << "] execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
-#endif // TIME_MEASURERM
+#endif // TIME_MEASURERMENT
 
 #ifdef DEBUG_ONE_TURN
 		break;
