@@ -22,7 +22,7 @@
 using namespace std;
 
 //#define REDIRECT_INPUT
-//#define OUTPUT_GAME_DATA
+#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
@@ -44,7 +44,108 @@ static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
 
+static constexpr int INVALID_COORD = -1;
+static constexpr int MAX_CHECKPOINTS_COUNT = 8;
+static constexpr int PODS_COUNT = 4;
+static constexpr int INITIAL_ANGLE = -1;
+static constexpr int INITIAL_NEXT_CHECKPOINT = 1;
+
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+struct Coords {
+	Coords() : 
+		x{ INVALID_COORD },
+		y{ INVALID_COORD }
+	{}
+
+	int x; ///< X Coordinate
+	int y; ///< Y Coordinate
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+/// Holds information for the checkpoints
+class Track {
+public:
+	Track();
+
+private:
+	Coords checkpoints[MAX_CHECKPOINTS_COUNT]; ///< Checkpoints spread on the track
+	int checkpointsCount; ///< How much checkpoints are there on the track
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Track::Track() :
+	checkpointsCount{0}
+{
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+/// Represents a pod, which partisipates in the race
+class Pod {
+public:
+	Pod();
+
+	/// Reset the pod to its initial state
+	void reset();
+
+private:
+	Coords initialPosition; ///< Where the pod starts the race
+	Coords position; ///< Where it is on the track
+	Coords speedVector; ///< The speed vector of the Pod
+	int angle; ///< The facing angle of the Pod
+	int nextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next
+	unsigned int flags; ///< Flags need for the simulation and the search algorithm
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Pod::Pod() :
+	angle{ INITIAL_ANGLE },
+	nextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
+	flags{ 0 }
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::reset() {
+	position = initialPosition;
+	angle = INITIAL_ANGLE;
+	nextCheckopoint = INITIAL_NEXT_CHECKPOINT;
+	flags = 0;
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+/// Represents the whole race, holds information for the track, the pods, simulate pods and performs minimax
+class RaceSimulator {
+public:
+private:
+	Pod pods[PODS_COUNT]; ///< Pods participating in the race
+	Track track; ///< The track on which the race is performed
+	// Simulate
+	// Minimax
+};
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -71,6 +172,7 @@ public:
 
 private:
 	// Game specific members
+	RaceSimulator raceSimulator;
 
 	int turnsCount;
 	int stopGame;
@@ -132,12 +234,26 @@ void Game::gameLoop() {
 void Game::getGameInput() {
 	int laps;
 	cin >> laps; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+	cerr << laps << endl;
+#endif // OUTPUT_GAME_DATA
+
 	int checkpointCount;
 	cin >> checkpointCount; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+	cerr << checkpointCount << endl;
+#endif // OUTPUT_GAME_DATA
+
 	for (int i = 0; i < checkpointCount; i++) {
 		int checkpointX;
 		int checkpointY;
 		cin >> checkpointX >> checkpointY; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+		cerr << checkpointX << SPACE << checkpointY << endl;
+#endif // OUTPUT_GAME_DATA
 	}
 }
 
@@ -153,6 +269,10 @@ void Game::getTurnInput() {
 		int angle; // angle of your pod
 		int nextCheckPointId; // next check point id of your pod
 		cin >> x >> y >> vx >> vy >> angle >> nextCheckPointId; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+		cerr << x << SPACE << y << SPACE << vx << SPACE << vy << SPACE << angle << SPACE << nextCheckPointId << endl;
+#endif // OUTPUT_GAME_DATA
 	}
 
 	for (int i = 0; i < 2; i++) {
@@ -163,6 +283,10 @@ void Game::getTurnInput() {
 		int angle2; // angle of the opponent's pod
 		int nextCheckPointId2; // next check point id of the opponent's pod
 		cin >> x2 >> y2 >> vx2 >> vy2 >> angle2 >> nextCheckPointId2; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+		cerr << x2 << SPACE << y2 << SPACE << vx2 << SPACE << vy2 << SPACE << angle2 << SPACE << nextCheckPointId2 << endl;
+#endif // OUTPUT_GAME_DATA
 	}
 }
 
