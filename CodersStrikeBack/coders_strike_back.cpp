@@ -77,6 +77,11 @@ class Track {
 public:
 	Track();
 
+	/// Add the checkopoint, with the given coordinate,
+	/// @param[in] checkpointX the X coordinate of the checkpoint ot add
+	/// @param[in] checkpointY the Y coordinate of the checkpoint ot add
+	void addCheckpoint(const int checkpointX, const int checkpointY);
+
 private:
 	Coords checkpoints[MAX_CHECKPOINTS_COUNT]; ///< Checkpoints spread on the track
 	int checkpointsCount; ///< How much checkpoints are there on the track
@@ -88,6 +93,15 @@ private:
 Track::Track() :
 	checkpointsCount{0}
 {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Track::addCheckpoint(const int checkpointX, const int checkpointY) {
+	checkpoints[checkpointsCount].x = checkpointX;
+	checkpoints[checkpointsCount].y = checkpointY;
+	++checkpointsCount;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -140,12 +154,25 @@ void Pod::reset() {
 /// Represents the whole race, holds information for the track, the pods, simulate pods and performs minimax
 class RaceSimulator {
 public:
+
+	/// Add the checkopoint, with the given coordinate, to the track
+	/// @param[in] checkpointX the X coordinate of the checkpoint ot add
+	/// @param[in] checkpointY the Y coordinate of the checkpoint ot add
+	void addCheckpoint(const int checkpointX, const int checkpointY);
+
 private:
 	Pod pods[PODS_COUNT]; ///< Pods participating in the race
 	Track track; ///< The track on which the race is performed
 	// Simulate
 	// Minimax
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void RaceSimulator::addCheckpoint(const int checkpointX, const int checkpointY) {
+	track.addCheckpoint(checkpointX, checkpointY);
+}
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -172,7 +199,7 @@ public:
 
 private:
 	// Game specific members
-	RaceSimulator raceSimulator;
+	RaceSimulator raceSimulator; ///< Whole race manager
 
 	int turnsCount;
 	int stopGame;
@@ -254,6 +281,8 @@ void Game::getGameInput() {
 #ifdef OUTPUT_GAME_DATA
 		cerr << checkpointX << SPACE << checkpointY << endl;
 #endif // OUTPUT_GAME_DATA
+
+		raceSimulator.addCheckpoint(checkpointX, checkpointY);
 	}
 }
 
@@ -368,3 +397,11 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
+
+// Game simulation parameters
+/*
+seed = 681000254
+pod_per_player = 2
+pod_timeout = 100
+map = 7982 7873 13284 5513 9539 1380 3637 4405
+*/
