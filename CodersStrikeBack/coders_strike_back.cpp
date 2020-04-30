@@ -48,19 +48,28 @@ static constexpr int BASE_16 = 16;
 
 static constexpr int INVALID_COORD = -1;
 static constexpr int MAX_CHECKPOINTS_COUNT = 8;
+static constexpr int CHECKPOINT_RADIUS = 600;
 static constexpr int PODS_COUNT = 4;
 static constexpr int TEAM_PODS_COUNT = PODS_COUNT / 2;
+static constexpr int POD_RADIUS = 400;
 static constexpr int INITIAL_ANGLE = -1;
 static constexpr int INITIAL_NEXT_CHECKPOINT = 1;
+static constexpr int INITIAL_NEXT_CHECKPOINT_TURNS_LEFT = 100;
 static constexpr int SHEILD_TURNS = 3;
+static constexpr int RACE_LAPS = 3;
 
 static constexpr unsigned int THRUST_MASK = 0b0000'0000'0000'0000'0000'0000'1111'1111;
 static constexpr unsigned int SHIELD_FLAG = 0b0000'0000'0000'0000'0100'0000'0000'0000;
 static constexpr unsigned int BOOST_FLAG  = 0b0000'0000'0000'0000'1000'0000'0000'0000;
+static constexpr unsigned int WINNER_FLAG = 0b1000'0000'0000'0000'1000'0000'0000'0000;
 
 static constexpr float MAX_ANGLE_PER_TURN = 18.f;
 static constexpr float TURN_START_TIME = 0.f;
 static constexpr float TURN_END_TIME = 1.f;
+static constexpr float FRICTION = .85f;
+static constexpr float HALF_MOMENTUM = 120.f;
+static constexpr float MASS_WITH_SHEILD = 10.f;
+static constexpr float MASS_WITHOUT_SHEILD = 1.f;
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
@@ -101,6 +110,12 @@ struct Coords {
 	/// @return the distance to point
 	float distance(const Coords point) const;
 
+	/// Find the colsest point in the AB line
+	/// @param[in] linePointA point A
+	/// @param[in] linePointB point B
+	/// @return the closest point on the line
+	Coords closestPointOnLine(Coords linePointA, Coords linePointB) const;
+
 	float x; ///< X Coordinate
 	float y; ///< Y Coordinate
 };
@@ -119,6 +134,31 @@ float Coords::distanceSquare(Coords point) const {
 
 float Coords::distance(Coords point) const {
 	return sqrt(distanceSquare(point));
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
+	float da = linePointB.y - linePointA.y;
+	float db = linePointA.x - linePointB.x;
+	float c1 = da * linePointA.x + db * linePointA.y;
+	float c2 = -db * x + da * y;
+	float det = da * da + db * db;
+
+	Coords clossestPoint;
+
+	if (det != 0) {
+		clossestPoint.x = (da * c1 - db * c2) / det;
+		clossestPoint.y = (da * c2 + db * c1) / det;
+	}
+	else {
+		// The point is already on the line
+		clossestPoint.x = x;
+		clossestPoint.y = y;
+	}
+
+	return clossestPoint;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -193,21 +233,53 @@ bool Action::hasFlag(const unsigned int flag) const {
 class Collision {
 public:
 	Collision();
+	Collision(int podIdx, int collideObjIdx, float collisionTurnTime, CollisionType type);
+
+	int getEntityAIdx() const { return podIdx; }
+	int getEntityBIdx() const { return collideObjIdx; }
+	float getCollisionTurnTime() const { return collisionTurnTime; }
+	CollisionType getType() const { return type; }
+
+	/// Check if the collision is valid
+	/// @return true if the collision is valid
+	bool isValid() const;
 
 private:
 	int podIdx; ///< The pod index, which is colliding with an object
-	int collideObj; ///< The object with which the pod is colliding
+	int collideObjIdx; ///< The object with which the pod is colliding
+	float collisionTurnTime; ///< The turn time when the collison is occurs
 	CollisionType type; ///< Flag showing if the pod coollides with Checkpoint
 };
+
+static const Collision INVALID_COLLISION{}; ///< Default value
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Collision::Collision() :
 	podIdx{ INVALID_IDX },
-	collideObj{ INVALID_IDX },
+	collideObjIdx{ INVALID_IDX },
+	collisionTurnTime{ 0.f },
 	type{ CollisionType::INVALID }
 {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Collision::Collision(int podIdx, int collideObjIdx, float collisionTurnTime, CollisionType type) :
+	podIdx{ podIdx },
+	collideObjIdx{ collideObjIdx },
+	collisionTurnTime{ collisionTurnTime },
+	type{ type }
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Collision::isValid() const {
+	return INVALID_IDX != podIdx && INVALID_IDX != collideObjIdx;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -219,6 +291,9 @@ Collision::Collision() :
 class Track {
 public:
 	Track();
+
+	Coords getCheckpoint(const int cpIdx) const { return checkpoints[cpIdx]; }
+	int getCheckpointsCount() const { return checkpointsCount; }
 
 	/// Add the checkopoint, with the given coordinate,
 	/// @param[in] checkpointX the X coordinate of the checkpoint ot add
@@ -255,6 +330,14 @@ void Track::addCheckpoint(const int checkpointX, const int checkpointY) {
 class Pod {
 public:
 	Pod();
+
+	void setPosition(const Coords position) { this->position = position; }
+	void setVelocity(const Coords velocity) { this->velocity = velocity; }
+
+	Coords getPosition() const { return position; }
+	Coords getVelocity() const { return velocity; }
+	float getAngle() const { return angle; }
+	int getNextCheckopoint() const { return nextCheckopoint; }
 
 	/// Reset the pod to its initial state
 	void reset();
@@ -304,6 +387,24 @@ public:
 	/// @return the angle for rotation
 	float calcAngleToTarget(const Coords target) const;
 
+	/// The Pod reached its next checkpoint, update the information
+	/// @param[in] chekpointsCountOnTrack the count of checkpoints on the track
+	void nextCPReached(const int chekpointsCountOnTrack);
+
+	/// Compute the bounce after the pod collides with another pod
+	/// @param[in] collidePod the pod, with which the collision happens
+	void computeBounce(Pod& collidePod);
+
+	/// Manage the shield variables
+	void manageSheild();
+
+	/// Correctly truncate the float parameter to match the calculations of the online platform
+	/// @param[in] toTruncate the float parameter to truncate
+	float truncate(const float toTruncate);
+
+	/// Conclude the turn
+	void endTurn();
+
 	/// Flags helpers
 	void setFlag(const unsigned int flag);
 	void unsetFlag(const unsigned int flag);
@@ -320,6 +421,10 @@ private:
 	int nextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next
 	int initialSheildTurnsLeft; ///< How many turns are left for the shield at the start of the turn
 	int sheildTurnsLeft; ///< How many turns are left for the shield
+	int initialTurnPassedCheckpoints; ///< How many checkpoints the Pod has passed at the start of the turn
+	int passedCheckpoints; ///< How many checkpoints the Pod has passed
+	int initialTurnTurnsLeft; ///< How many turns left for the shuttle to pass the next checkpoint at the start of the turn
+	int turnsLeft; ///< How many turns left for the shuttle to pass the next checkpoint
 	unsigned int initialTurnFlags; ///< Flags need for the simulation and the search algorithm at the start of the turn
 	unsigned int flags; ///< Flags need for the simulation and the search algorithm
 };
@@ -332,6 +437,10 @@ Pod::Pod() :
 	angle{ INITIAL_ANGLE },
 	initialTurnNextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
 	nextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
+	initialTurnTurnsLeft{ INITIAL_NEXT_CHECKPOINT_TURNS_LEFT },
+	initialTurnPassedCheckpoints{ 0 },
+	passedCheckpoints{ 0 },
+	turnsLeft{ INITIAL_NEXT_CHECKPOINT_TURNS_LEFT },
 	initialTurnFlags{ 0 },
 	flags{ 0 }
 {
@@ -346,6 +455,7 @@ void Pod::reset() {
 	angle = initialTurnAngle;
 	nextCheckopoint = initialTurnNextCheckopoint;
 	sheildTurnsLeft = initialSheildTurnsLeft;
+	turnsLeft = initialTurnTurnsLeft;
 	flags = initialTurnFlags;
 }
 
@@ -369,6 +479,10 @@ void Pod::fillData(
 	this->angle = static_cast<float>(angle);
 	this->initialTurnNextCheckopoint = nextCheckPointId;
 	this->nextCheckopoint= nextCheckPointId;
+
+	// TODO:
+	// shield
+	// turnsLeft
 }
 
 //*************************************************************************************************************
@@ -490,6 +604,116 @@ void Pod::applyAction(Action action) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Pod::nextCPReached(const int chekpointsCountOnTrack) {
+	++passedCheckpoints;
+	nextCheckopoint = passedCheckpoints % chekpointsCountOnTrack;
+
+	// Fisrt time the 0th checkpoint does not counts
+	if (passedCheckpoints >= (RACE_LAPS * chekpointsCountOnTrack) - 1) {
+		setFlag(WINNER_FLAG); // :)
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::computeBounce(Pod& entity) {
+	// If a pod has its shield active its mass is 10 otherwise it's 1
+	float m1 = hasFlag(SHIELD_FLAG) ? MASS_WITH_SHEILD : MASS_WITHOUT_SHEILD;
+	float m2 = entity.hasFlag(SHIELD_FLAG) ? MASS_WITH_SHEILD : MASS_WITHOUT_SHEILD;
+	float mcoeff = (m1 + m2) / (m1 * m2);
+
+	float nx = position.x - entity.getPosition().x;
+	float ny = position.y - entity.getPosition().y;
+
+	// Square of the distance between the 2 pods. This value could be hardcoded because it is always 800
+	float nxnysquare = nx * nx + ny * ny;
+
+	float dvx = velocity.x - entity.getVelocity().x;
+	float dvy = velocity.y - entity.getVelocity().y;
+
+	// fx and fy are the components of the impact vector. product is just there for optimisation purposes
+	float product = nx * dvx + ny * dvy;
+	float fx = (nx * product) / (nxnysquare * mcoeff);
+	float fy = (ny * product) / (nxnysquare * mcoeff);
+
+	// We apply the impact vector once
+	velocity.x -= fx / m1;
+	velocity.y -= fy / m1;
+	entity.setVelocity(
+		Coords(
+			entity.getVelocity().x + fx / m2,
+			entity.getVelocity().y + fy / m2
+		)
+	);
+
+	// If the norm of the impact vector is less than 120, we normalize it to 120
+	float impulse = sqrt(fx*fx + fy * fy);
+	if (impulse < HALF_MOMENTUM) {
+		fx = fx * HALF_MOMENTUM / impulse;
+		fy = fy * HALF_MOMENTUM / impulse;
+	}
+
+	// We apply the impact vector a second time
+	velocity.x -= fx / m1;
+	velocity.y -= fy / m1;
+	entity.setVelocity(
+		Coords(
+			entity.getVelocity().x + fx / m2,
+			entity.getVelocity().y + fy / m2
+		)
+	);
+
+	// This is one of the rare places where a Vector class would have made the code more readable.
+	// But this place is called so often that I can't pay a performance price to make it more readable.
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::manageSheild() {
+	if (hasFlag(SHIELD_FLAG)) {
+		if (sheildTurnsLeft > 0) {
+			--sheildTurnsLeft;
+		}
+		else {
+			unsetFlag(SHIELD_FLAG);
+		}
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Pod::truncate(const float toTruncate) {
+	float res = floor(toTruncate);
+
+	if (toTruncate < 0) {
+		res = ceil(toTruncate);
+	}
+
+	return res;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::endTurn() {
+	position.x = round(position.x);
+	position.y = round(position.y);
+	velocity.x = truncate(velocity.x * FRICTION);
+	velocity.y = truncate(velocity.y * FRICTION);
+	//angle = round(angle);
+
+	// Don't forget that the timeout goes down by 1 each turn. It is reset to 100 when you pass a checkpoint
+	--turnsLeft;
+
+	manageSheild();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Pod::setFlag(const unsigned int flag) {
 	flags |= flag;
 }
@@ -558,6 +782,12 @@ public:
 	/// @return the collision between the entities if they collide, invalid one otherwise
 	Collision checkForCollision(const int entityAIdx, const int entityBIdx, const CollisionType collType);
 
+	/// Comapare the given collisions
+	/// @param[in] collisionA the first collision
+	/// @param[in] collisionB the second collision
+	/// @return true if the collisions are identical false otherwise
+	bool compareCollisions(const Collision& collisionA, const Collision& collisionB);
+
 private:
 	Pod pods[PODS_COUNT]; ///< Pods participating in the race
 	Track track; ///< The track on which the race is performed
@@ -606,6 +836,10 @@ void RaceSimulator::simulatePods(const Action(&podsActions)[PODS_COUNT]) {
 
 	// Move all pods simulataniously after their actions are applied
 	movePods();
+
+	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
+		pods[podActionIdx].endTurn();
+	}
 }
 
 //*************************************************************************************************************
@@ -623,65 +857,64 @@ void RaceSimulator::movePods() {
 		for (int i = 0; i < PODS_COUNT; ++i) {
 			// Collision with another pod?
 			for (int j = i + 1; j < PODS_COUNT; ++j) {
-	//			Collision col = checkForCollision(pods[i], pods[j]);
-	//
-	//			if (col.isValid() && TURN_START_TIME == col.getCollisinTurnTime() && compareCollisions(&previousCollision, &col)) {
-	//				col = Collision();
-	//			}
-	//
-	//			// If the collision occurs earlier than the one we currently have we keep it
-	//			if (col.isValid() && col.getCollisinTurnTime() + t < TURN_END_TIME &&
-	//				(!firstCollision.isValid() || col.getCollisinTurnTime() < firstCollision.getCollisinTurnTime())) {
-	//				firstCollision = col;
-	//			}
+				Collision col = checkForCollision(i, j, CollisionType::WITH_POD);
+
+				if (col.isValid() && TURN_START_TIME == col.getCollisionTurnTime() && compareCollisions(previousCollision, col)) {
+					col = INVALID_COLLISION;
+				}
+
+				// If the collision occurs earlier than the one we currently have we keep it
+				if (col.isValid() && col.getCollisionTurnTime() + t < TURN_END_TIME &&
+					(!firstCollision.isValid() || col.getCollisionTurnTime() < firstCollision.getCollisionTurnTime())) {
+					firstCollision = col;
+				}
 			}
-	//
-	//		// Collision with another checkpoint?
-	//		// It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
-	//		// We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
-	//		Collision col = checkForCollision(pods[i], checkPoints[pods[i]->getNextCheckPointId()]);
-	//
-	//		if (col.isValid() && previousCollision.isValid() && /*TURN_START_TIME == col->getCollisinTurnTime() &&*/ compareCollisions(&previousCollision, &col)) {
-	//			col = Collision();
-	//		}
-	//
-	//		// If the collision happens earlier than the current one we keep it
-	//		if (col.isValid() && col.getCollisinTurnTime() + t < TURN_END_TIME &&
-	//			(!firstCollision.isValid() || col.getCollisinTurnTime() < firstCollision.getCollisinTurnTime())) {
-	//			firstCollision = col;
-	//		}
+
+			// Collision with another checkpoint?
+			// It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
+			// We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
+			Collision col = checkForCollision(i, pods[i].getNextCheckopoint(), CollisionType::WITH_CHECKPOINT);
+
+			if (col.isValid() && previousCollision.isValid() && /*TURN_START_TIME == col->getCollisinTurnTime() &&*/ compareCollisions(previousCollision, col)) {
+				col = Collision();
+			}
+
+			// If the collision happens earlier than the current one we keep it
+			if (col.isValid() && col.getCollisionTurnTime() + t < TURN_END_TIME &&
+				(!firstCollision.isValid() || col.getCollisionTurnTime() < firstCollision.getCollisionTurnTime())) {
+				firstCollision = col;
+			}
 		}
-	//
-	//	if (!firstCollision.isValid()) {
-	//		// No collision, we can move the pods until the end of the turn
-	//		for (int i = 0; i < podsCount; ++i) {
-	//			pods[i]->move(TURN_END_TIME - t);
-	//		}
-	//
-	//		// End of the turn
-	//		t = TURN_END_TIME;
-	//	}
-	//	else {
-	//		// Move the pods to reach the time t of the collision
-	//		for (int i = 0; i < podsCount; ++i) {
-	//			pods[i]->move(firstCollision.getCollisinTurnTime());
-	//		}
-	//
-	//		CheckPoint* checkPoint = dynamic_cast<CheckPoint*>(firstCollision.getEntityB());
-	//		Pod* pod = dynamic_cast<Pod*>(firstCollision.getEntityA());
-	//		if (pod && checkPoint) {
-	//			computeCheckPointCollision(pod, checkPoint);
-	//		}
-	//		else {
-	//			// Play out the collision
-	//			firstCollision.getEntityA()->computeBounce(firstCollision.getEntityB());
-	//		}
-	//
-	//		t += firstCollision.getCollisinTurnTime();
-	//	}
-	//
-	//	previousCollision = firstCollision;
-	//	firstCollision = Collision();
+
+		if (!firstCollision.isValid()) {
+			// No collision, we can move the pods until the end of the turn
+			for (int i = 0; i < PODS_COUNT; ++i) {
+				pods[i].move(TURN_END_TIME - t);
+			}
+
+			// End of the turn
+			t = TURN_END_TIME;
+		}
+		else {
+			// Move the pods to reach the time t of the collision
+			for (int i = 0; i < PODS_COUNT; ++i) {
+				pods[i].move(firstCollision.getCollisionTurnTime());
+			}
+
+			if (CollisionType::WITH_CHECKPOINT == firstCollision.getType()) {
+				// EntityA is pod which collides with the checkpoint
+				pods[firstCollision.getEntityAIdx()].nextCPReached(track.getCheckpointsCount());
+			}
+			else {
+				// Play out the collision
+				pods[firstCollision.getEntityAIdx()].computeBounce(pods[firstCollision.getEntityBIdx()]);
+			}
+
+			t += firstCollision.getCollisionTurnTime();
+		}
+
+		previousCollision = firstCollision;
+		firstCollision = INVALID_COLLISION;
 	}
 }
 
@@ -689,72 +922,101 @@ void RaceSimulator::movePods() {
 //*************************************************************************************************************
 
 Collision RaceSimulator::checkForCollision(const int entityAIdx, const int entityBIdx, const CollisionType collType) {
-	//// Square of the distance
-	//float dist = entityA->getPosition().distanceSquare(entityB->getPosition());
-	//
-	//// Sum of the radii squared
-	//float sr = (float)(entityA->getRadius() + entityB->getRadius()) * (entityA->getRadius() + entityB->getRadius());
-	//
-	//// We take everything squared to avoid calling sqrt uselessly. It is better for performances
-	//
-	//if (dist < sr) {
-	//	// Objects are already touching each other. We have an immediate collision.		
-	//	return Collision(entityA, entityB, 0.0);
-	//}
-	//
-	//// Optimisation. Objects with the same speed will never collide
-	//if (entityA->getSpeedVector().xCoord == entityB->getSpeedVector().xCoord &&
-	//	entityA->getSpeedVector().yCoord == entityB->getSpeedVector().yCoord
-	//	) {
-	//	return Collision();
-	//}
-	//
-	//// We place ourselves in the reference frame of u. u is therefore stationary and is at (0,0)
-	//float x = entityA->getPosition().xCoord - entityB->getPosition().xCoord;
-	//float y = entityA->getPosition().yCoord - entityB->getPosition().yCoord;
-	//Coords myp(x, y);
-	//float vx = entityA->getSpeedVector().xCoord - entityB->getSpeedVector().xCoord;
-	//float vy = entityA->getSpeedVector().yCoord - entityB->getSpeedVector().yCoord;
-	//Coords up(0.f, 0.f);
-	//
-	//// We look for the closest point to u (which is in (0,0)) on the line described by our speed vector
-	//Coords p = up.closestPointOnLine(myp, Coords(x + vx, y + vy));
-	//
-	//// Square of the distance between u and the closest point to u on the line described by our speed vector
-	//float pdist = up.distanceSquare(p);
-	//
-	//// Square of the distance between us and that point
-	//float mypdist = myp.distanceSquare(p);
-	//
-	//// If the distance between u and this line is less than the sum of the radii, there might be a collision
-	//if (pdist < sr) {
-	//	// Our speed on the line
-	//	float length = sqrt(vx * vx + vy * vy);
-	//
-	//	// We move along the line to find the point of impact
-	//	float backdist = sqrt(sr - pdist);
-	//	p.xCoord = p.xCoord - backdist * (vx / length);
-	//	p.yCoord = p.yCoord - backdist * (vy / length);
-	//
-	//	// If the point is now further away it means we are not going the right way, therefore the collision won't happen
-	//	if (myp.distanceSquare(p) > mypdist) {
-	//		return Collision();
-	//	}
-	//
-	//	pdist = p.distance(myp);
-	//
-	//	// The point of impact is further than what we can travel in one turn
-	//	if (pdist > length) {
-	//		return Collision();
-	//	}
-	//
-	//	// Time needed to reach the impact point
-	//	float t = pdist / length;
-	//
-	//	return Collision(entityA, entityB, t);
-	//}
+	const Coords entityAPosition = pods[entityAIdx].getPosition(); // EnityA is always a Pod
+	const Coords entityAVelocity = pods[entityAIdx].getVelocity(); // EnityA is always a Pod
+	const int entityARadius = POD_RADIUS;
+	Coords entityBPosition; // EntityB could be a Pod or a Checkpoint
+	Coords entityBVelocity; // EntityB could be a Pod or a Checkpoint
+	int entityBRadius = 0;
 
-	return Collision();
+	if (CollisionType::WITH_POD == collType) {
+		entityBPosition = pods[entityBIdx].getPosition();
+		entityBVelocity = pods[entityBIdx].getVelocity();
+		entityBRadius = POD_RADIUS;
+	}
+	else {
+		entityBPosition = track.getCheckpoint(entityBIdx);
+		entityBVelocity = Coords(0.f, 0.f);
+		entityBRadius = CHECKPOINT_RADIUS;
+	}
+
+	// Square of the distance
+	float dist = entityAPosition.distanceSquare(entityBPosition);
+
+	// Sum of the radii squared
+	float sr = (float)(entityARadius + entityBRadius) * (entityARadius + entityBRadius);
+
+	// We take everything squared to avoid calling sqrt uselessly. It is better for performances
+
+	if (dist < sr) {
+		// Objects are already touching each other. We have an immediate collision.
+		return Collision(entityAIdx, entityBIdx, 0.f, collType);
+	}
+
+	// Optimisation. Objects with the same speed will never collide
+	if (entityAVelocity.x == entityBVelocity.x &&
+		entityAVelocity.y == entityBVelocity.y
+		) {
+		return INVALID_COLLISION;
+	}
+
+	// We place ourselves in the reference frame of u. u is therefore stationary and is at (0,0)
+	float x = entityAPosition.x - entityBPosition.x;
+	float y = entityAPosition.y - entityBPosition.y;
+	Coords myp(x, y);
+	float vx = entityAVelocity.x - entityBVelocity.x;
+	float vy = entityAVelocity.y - entityBVelocity.y;
+	Coords up(0.f, 0.f);
+
+	// We look for the closest point to u (which is in (0,0)) on the line described by our speed vector
+	Coords p = up.closestPointOnLine(myp, Coords(x + vx, y + vy));
+
+	// Square of the distance between u and the closest point to u on the line described by our speed vector
+	float pdist = up.distanceSquare(p);
+
+	// Square of the distance between us and that point
+	float mypdist = myp.distanceSquare(p);
+
+	// If the distance between u and this line is less than the sum of the radii, there might be a collision
+	if (pdist < sr) {
+		// Our speed on the line
+		float length = sqrt(vx * vx + vy * vy);
+
+		// We move along the line to find the point of impact
+		float backdist = sqrt(sr - pdist);
+		p.x = p.x - backdist * (vx / length);
+		p.y = p.y - backdist * (vy / length);
+
+		// If the point is now further away it means we are not going the right way, therefore the collision won't happen
+		if (myp.distanceSquare(p) > mypdist) {
+			return INVALID_COLLISION;
+		}
+
+		pdist = p.distance(myp);
+
+		// The point of impact is further than what we can travel in one turn
+		if (pdist > length) {
+			return INVALID_COLLISION;
+		}
+
+		// Time needed to reach the impact point
+		float t = pdist / length;
+	
+		return Collision(entityAIdx, entityBIdx, t, collType);
+	}
+
+	return INVALID_COLLISION;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool RaceSimulator::compareCollisions(const Collision& collisionA, const Collision& collisionB) {
+	const bool identicalTypes = collisionA.getType() == collisionB.getType();
+	const bool identicalAEntities = collisionA.getEntityAIdx() == collisionB.getEntityAIdx();
+	const bool identicalBEntities = collisionA.getEntityBIdx() == collisionB.getEntityBIdx();
+
+	return identicalTypes && identicalAEntities && identicalBEntities;
 }
 
 //-------------------------------------------------------------------------------------------------------------
