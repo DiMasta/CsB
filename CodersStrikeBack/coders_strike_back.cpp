@@ -22,11 +22,11 @@
 using namespace std;
 
 //#define REDIRECT_INPUT
-#define OUTPUT_GAME_DATA
+//#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
-//#define TESTS
+#define TESTS
 #define M_PI 3.14159265358979323846
 
 //static const string INPUT_FILE_NAME = "input.txt";
@@ -34,6 +34,8 @@ static const string INPUT_FILE_NAME = "input_classic_track.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
 static const string EMPTY_STRING = "";
 static const string SPACE = " ";
+static const string BOOST = "BOOST";
+static const string SHIELD = "SHIELD";
 
 static constexpr int INVALID_ID = -1;
 static constexpr int INVALID_IDX = -1;
@@ -170,6 +172,8 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 
 class Action {
 public:
+	Action(const Coords target, const string& thrustStr);
+
 	void setTarget(const Coords traget) { this->target = target; }
 	Coords getTarget() const { return target; }
 
@@ -190,6 +194,23 @@ private:
 	Coords target; ///< Target point for the pod
 	unsigned int flags; ///< Thrust(in the first 8 bits) and flags for shield and boost
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Action::Action(const Coords target, const string& thrustStr) :
+	target(target)
+{
+	if (BOOST == thrustStr) {
+		setFlag(BOOST_FLAG);
+	}
+	else if (SHIELD == thrustStr) {
+		setFlag(SHIELD_FLAG);
+	}
+	else {
+		setThrust(stoi(thrustStr));
+	}
+}
 
 //*************************************************************************************************************
 //*************************************************************************************************************
@@ -1250,7 +1271,13 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	cout << "13284 5513 BOOST" << endl;
+	if (0 == turnsCount) {
+		cout << "13284 5513 BOOST" << endl;
+	}
+	else {
+		cout << "13284 5513 100" << endl;
+	}
+
 	cout << "13284 5513 100" << endl;
 }
 

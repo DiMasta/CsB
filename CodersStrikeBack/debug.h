@@ -13,13 +13,152 @@
 //}
 
 TEST_CASE("Test Simulation of a turn!") {
-	Pod pod0(7779, 7416, 0, 0, -1, 1);
-	Pod pod1(8185, 8330, 0, 0, -1, 1);
-	Pod pod2(7372, 6503, 0, 0, -1, 1);
-	Pod pod3(8592, 9243, 0, 0, -1, 1);
+	const Pod pods[PODS_COUNT] = {
+		{ 7779, 7416, 0, 0, -1, 1 },
+		{ 8185, 8330, 0, 0, -1, 1 },
+		{ 7372, 6503, 0, 0, -1, 1 },
+		{ 8592, 9243, 0, 0, -1, 1 }
+	};
 
-	Track track();
-	RaceSimulator raceSimulator();
+	const int actualCPCount = 4;
+	const Coords checkPoints[MAX_CHECKPOINTS_COUNT] = {
+		{ 7982, 7873 },
+		{ 13284, 5513 },
+		{ 9539, 1380 },
+		{ 3637, 4405 },
+		{},
+		{},
+		{},
+		{}
+	};
+
+	const vector<Action[PODS_COUNT]> actions = {
+		{
+			{ 13284, 5513, "BOOST" },
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 12952, 5569, "BOOST"},
+			{ 13020, 5721, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 10824, 5925, "100" },
+			{ 12796, 5901, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 10860, 5917, "100" },
+			{ 12604, 6053, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 11396, 6265, "100" },
+			{ 12440, 6181, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 11344, 6121, "100" },
+			{ 12116, 5817, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 7555, 1840, "0" },
+			{ 12060, 6013, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 7855, 1768, "100" },
+			{ 12016, 6185, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 7807, 1860, "100" },
+			{ 11984, 6337, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 7827, 2024, "0" },
+			{ 11964, 6473, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 8087, 1924, "0" },
+			{ 11952, 6593, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 8307, 1840, "100" },
+			{ 8211, 2572, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 8543, 2104, "100" },
+			{ 8311, 2716, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 8847, 2296, "SHIELD" },
+			{ 8583, 2160, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 8835, 2324, "100" },
+			{ 8839, 2364, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 8943, 2180, "100" },
+			{ 9151, 2488, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 9035, 2060, "100" },
+			{ 9471, 2540, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 9111, 1956, "100" },
+			{ 9743, 2576, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 9499, 1980, "100" },
+			{ 9979, 2600, "100" }
+		},
+		{
+			{ 13284, 5513, "100" },
+			{ 13284, 5513, "100" },
+			{ 9827, 1996, "100" },
+			{ 10187, 2616, "100" }
+		}
+	};
+
+	Track track(checkPoints, actualCPCount);
+	RaceSimulator raceSimulator(pods, track);
+
+	raceSimulator.simulate(actions);
 
 	//CheckPoint* cp0 = new CheckPoint(Coords(7982.f, 7873.f), Coords(0.f, 0.f), CHECKPOINT_RADIUS, 0);
 	//CheckPoint* cp1 = new CheckPoint(Coords(13284.f, 5513.f), Coords(0.f, 0.f), CHECKPOINT_RADIUS, 1);
@@ -102,22 +241,22 @@ TEST_CASE("Test Simulation of a turn!") {
 	//// ENEMY_POD : Coords : (X = 11099, Y = 7786) Speed : (X = 327, Y = -222) Angle : 305
 	//turnNplus4->simulateTurn(actionForSimulation);
 
-	SUBCASE("Tests for turn 5") {
-		CHECK(turnNplus4->getPod(0)->getPosition() == Coords(10400.f, 5762.f));
-		CHECK(turnNplus4->getPod(1)->getPosition() == Coords(10960.f, 6952.f));
-		CHECK(turnNplus4->getPod(2)->getPosition() == Coords(12739.f, 5204.f));
-		CHECK(turnNplus4->getPod(3)->getPosition() == Coords(11099.f, 7786.f));
-
-		CHECK(turnNplus4->getPod(0)->getSpeedVector() == Coords(355.f, -252.f));
-		CHECK(turnNplus4->getPod(1)->getSpeedVector() == Coords(402.f, -166.f));
-		CHECK(turnNplus4->getPod(2)->getSpeedVector() == Coords(429.f, -182.f));
-		CHECK(turnNplus4->getPod(3)->getSpeedVector() == Coords(327.f, -222.f));
-
-		CHECK(round(turnNplus4->getPod(0)->getAngle()) == 351);
-		CHECK(round(turnNplus4->getPod(1)->getAngle()) == 330);
-		CHECK(round(turnNplus4->getPod(2)->getAngle()) == 278);
-		CHECK(round(turnNplus4->getPod(3)->getAngle()) == 305);
-	}
+	//SUBCASE("Tests for turn 5") {
+	//	CHECK(turnNplus4->getPod(0)->getPosition() == Coords(10400.f, 5762.f));
+	//	CHECK(turnNplus4->getPod(1)->getPosition() == Coords(10960.f, 6952.f));
+	//	CHECK(turnNplus4->getPod(2)->getPosition() == Coords(12739.f, 5204.f));
+	//	CHECK(turnNplus4->getPod(3)->getPosition() == Coords(11099.f, 7786.f));
+	//
+	//	CHECK(turnNplus4->getPod(0)->getSpeedVector() == Coords(355.f, -252.f));
+	//	CHECK(turnNplus4->getPod(1)->getSpeedVector() == Coords(402.f, -166.f));
+	//	CHECK(turnNplus4->getPod(2)->getSpeedVector() == Coords(429.f, -182.f));
+	//	CHECK(turnNplus4->getPod(3)->getSpeedVector() == Coords(327.f, -222.f));
+	//
+	//	CHECK(round(turnNplus4->getPod(0)->getAngle()) == 351);
+	//	CHECK(round(turnNplus4->getPod(1)->getAngle()) == 330);
+	//	CHECK(round(turnNplus4->getPod(2)->getAngle()) == 278);
+	//	CHECK(round(turnNplus4->getPod(3)->getAngle()) == 305);
+	//}
 
 	//delete debugState;
 	//delete turnNplus1;
