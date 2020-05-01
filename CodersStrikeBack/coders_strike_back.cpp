@@ -855,6 +855,10 @@ void RaceSimulator::fillPodData(
 //*************************************************************************************************************
 
 void RaceSimulator::simulate(const vector<Action[PODS_COUNT]>& turnActions) {
+	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
+		pods[podActionIdx].reset();
+	}
+	
 	for (size_t actionIdx = 0; actionIdx < turnActions.size(); ++actionIdx) {
 		simulatePods(turnActions[actionIdx]);
 	}
