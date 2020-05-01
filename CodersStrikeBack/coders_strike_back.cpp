@@ -293,6 +293,7 @@ bool Collision::isValid() const {
 class Track {
 public:
 	Track();
+	Track(const Coords(&checkpoints)[MAX_CHECKPOINTS_COUNT], const int checkpointsCount);
 
 	Coords getCheckpoint(const int cpIdx) const { return checkpoints[cpIdx]; }
 	int getCheckpointsCount() const { return checkpointsCount; }
@@ -313,6 +314,17 @@ private:
 Track::Track() :
 	checkpointsCount{0}
 {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Track::Track(const Coords(&checkpoints)[MAX_CHECKPOINTS_COUNT], const int checkpointsCount) :
+	checkpointsCount(checkpointsCount)
+{
+	for (int cpIdx = 0; cpIdx < checkpointsCount; ++cpIdx) {
+		this->checkpoints[cpIdx] = checkpoints[cpIdx];
+	}
 }
 
 //*************************************************************************************************************
@@ -774,6 +786,8 @@ bool Pod::hasFlag(const unsigned int flag) const {
 /// Represents the whole race, holds information for the track, the pods, simulate pods and performs minimax
 class RaceSimulator {
 public:
+	RaceSimulator() = default;
+	RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track);
 
 	/// Add the checkopoint, with the given coordinate, to the track
 	/// @param[in] checkpointX the X coordinate of the checkpoint ot add
@@ -827,6 +841,17 @@ private:
 	Track track; ///< The track on which the race is performed
 	// Minimax
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+RaceSimulator::RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track) :
+	track(track)
+{
+	for (int podIdx = 0; podIdx < PODS_COUNT; ++podIdx) {
+		this->pods[podIdx] = pods[podIdx];
+	}
+}
 
 //*************************************************************************************************************
 //*************************************************************************************************************

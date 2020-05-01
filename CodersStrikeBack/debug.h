@@ -18,7 +18,8 @@ TEST_CASE("Test Simulation of a turn!") {
 	Pod pod2(7372, 6503, 0, 0, -1, 1);
 	Pod pod3(8592, 9243, 0, 0, -1, 1);
 
-
+	Track track();
+	RaceSimulator raceSimulator();
 
 	//CheckPoint* cp0 = new CheckPoint(Coords(7982.f, 7873.f), Coords(0.f, 0.f), CHECKPOINT_RADIUS, 0);
 	//CheckPoint* cp1 = new CheckPoint(Coords(13284.f, 5513.f), Coords(0.f, 0.f), CHECKPOINT_RADIUS, 1);
