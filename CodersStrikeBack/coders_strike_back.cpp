@@ -22,10 +22,11 @@
 using namespace std;
 
 //#define REDIRECT_INPUT
-//#define OUTPUT_GAME_DATA
+#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
-#define DEBUG_ONE_TURN
+//#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
+//#define TESTS
 #define M_PI 3.14159265358979323846
 
 //static const string INPUT_FILE_NAME = "input.txt";
@@ -57,6 +58,7 @@ static constexpr int INITIAL_NEXT_CHECKPOINT = 1;
 static constexpr int INITIAL_NEXT_CHECKPOINT_TURNS_LEFT = 100;
 static constexpr int SHEILD_TURNS = 3;
 static constexpr int RACE_LAPS = 3;
+static constexpr int BOOST_THRUST = 650;
 
 static constexpr unsigned int THRUST_MASK = 0b0000'0000'0000'0000'0000'0000'1111'1111;
 static constexpr unsigned int SHIELD_FLAG = 0b0000'0000'0000'0000'0100'0000'0000'0000;
@@ -330,6 +332,14 @@ void Track::addCheckpoint(const int checkpointX, const int checkpointY) {
 class Pod {
 public:
 	Pod();
+	Pod(
+		const int x,
+		const int y,
+		const int vx,
+		const int vy,
+		const int angle,
+		const int nextCheckPointId
+	);
 
 	void setPosition(const Coords position) { this->position = position; }
 	void setVelocity(const Coords velocity) { this->velocity = velocity; }
@@ -413,18 +423,25 @@ public:
 private:
 	Coords initialTurnPosition; ///< Where the pod starts the turn
 	Coords position; ///< Where it is on the track
+
 	Coords initialTurnVelocity; ///< The speed vector of the Pod at the start of the turn
 	Coords velocity; ///< The speed vector of the Pod
+
 	float initialTurnAngle; ///< The facing angle of the Pod at the start of the turn
 	float angle; ///< The facing angle of the Pod
+
 	int initialTurnNextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next at the start of the turn
 	int nextCheckopoint; ///< The id of the checkopoint, which the Pod must cross next
+
 	int initialSheildTurnsLeft; ///< How many turns are left for the shield at the start of the turn
 	int sheildTurnsLeft; ///< How many turns are left for the shield
+
 	int initialTurnPassedCheckpoints; ///< How many checkpoints the Pod has passed at the start of the turn
 	int passedCheckpoints; ///< How many checkpoints the Pod has passed
+
 	int initialTurnTurnsLeft; ///< How many turns left for the shuttle to pass the next checkpoint at the start of the turn
 	int turnsLeft; ///< How many turns left for the shuttle to pass the next checkpoint
+
 	unsigned int initialTurnFlags; ///< Flags need for the simulation and the search algorithm at the start of the turn
 	unsigned int flags; ///< Flags need for the simulation and the search algorithm
 };
@@ -444,6 +461,20 @@ Pod::Pod() :
 	initialTurnFlags{ 0 },
 	flags{ 0 }
 {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Pod::Pod(
+	const int x,
+	const int y,
+	const int vx,
+	const int vy,
+	const int angle,
+	const int nextCheckPointId
+) {
+	fillData(x, y, vx, vy, angle, nextCheckopoint);
 }
 
 //*************************************************************************************************************
@@ -596,6 +627,9 @@ void Pod::applyAction(Action action) {
 	int thrustToApply = action.getThrust();
 	if (hasFlag(SHIELD_FLAG)) {
 		thrustToApply = 0;
+	}	
+	else if (hasFlag(BOOST_FLAG)) {
+		thrustToApply = BOOST_THRUST;
 	}
 
 	applyThrust(thrustToApply);
@@ -1187,8 +1221,8 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	cout << "8000 4500 100" << endl;
-	cout << "8000 4500 100" << endl;
+	cout << "13284 5513 BOOST" << endl;
+	cout << "13284 5513 100" << endl;
 }
 
 //*************************************************************************************************************
@@ -1250,7 +1284,7 @@ int main(int argc, char** argv) {
 #ifdef TIME_MEASURERMENT
 	chrono::steady_clock::time_point end = chrono::steady_clock::now();
 	cerr << "Game execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
-#endif // TIME_MEASURERMENT	
+#endif // TIME_MEASURERMENT
 
 #endif // TESTS
 

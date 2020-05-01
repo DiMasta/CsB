@@ -13,10 +13,10 @@
 //}
 
 TEST_CASE("Test Simulation of a turn!") {
-	Pod pod0(8593, 7137, 255, -87, 341, 1, 100);
-	Pod pod1(8938, 7918, 235, -129, 331, 1, 100);
-	Pod pod2(9614, 6127, 598, -99, 350, 1, 100);
-	Pod pod3(9262, 8711, 211, -167, 322, 1, 100);
+	Pod* pod0 = new Pod(Coords(8593.f, 7137.f), Coords(255.f, -87.f), 341.f, 1, 100, false, POD_RADIUS, 3, PR_MY_HUNTER, 0);
+	Pod* pod1 = new Pod(Coords(8938.f, 7918.f), Coords(235.f, -129.f), 331.f, 1, 100, false, POD_RADIUS, 3, PR_MY_HUNTER, 0);
+	Pod* pod2 = new Pod(Coords(9614.f, 6127.f), Coords(598.f, -99.f), 350.f, 1, 100, false, POD_RADIUS, 3, PR_ENEMY_HUNTER, 0);
+	Pod* pod3 = new Pod(Coords(9262.f, 8711.f), Coords(211.f, -167.f), 322.f, 1, 100, false, POD_RADIUS, 3, PR_ENEMY_HUNTER, 0);
 
 	CheckPoint* cp0 = new CheckPoint(Coords(7982.f, 7873.f), Coords(0.f, 0.f), CHECKPOINT_RADIUS, 0);
 	CheckPoint* cp1 = new CheckPoint(Coords(13284.f, 5513.f), Coords(0.f, 0.f), CHECKPOINT_RADIUS, 1);
