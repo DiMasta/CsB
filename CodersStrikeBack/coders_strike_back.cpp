@@ -62,10 +62,11 @@ static constexpr int SHEILD_TURNS = 3;
 static constexpr int RACE_LAPS = 3;
 static constexpr int BOOST_THRUST = 650;
 
-static constexpr unsigned int THRUST_MASK = 0b0000'0000'0000'0000'0000'0000'1111'1111;
-static constexpr unsigned int SHIELD_FLAG = 0b0000'0000'0000'0000'0100'0000'0000'0000;
-static constexpr unsigned int BOOST_FLAG  = 0b0000'0000'0000'0000'1000'0000'0000'0000;
-static constexpr unsigned int WINNER_FLAG = 0b1000'0000'0000'0000'1000'0000'0000'0000;
+static constexpr unsigned int THRUST_MASK		= 0b0000'0000'0000'0000'0000'0000'1111'1111;
+static constexpr unsigned int SHIELD_FLAG		= 0b0000'0000'0000'0000'0100'0000'0000'0000;
+static constexpr unsigned int BOOST_FLAG		= 0b0000'0000'0000'0000'1000'0000'0000'0000;
+static constexpr unsigned int FIRST_TURN_FLAG	= 0b0000'0000'0000'0001'0000'0000'0000'0000;
+static constexpr unsigned int WINNER_FLAG		= 0b1000'0000'0000'0000'0000'0000'0000'0000;
 
 static constexpr float MAX_ANGLE_PER_TURN = 18.f;
 static constexpr float TURN_START_TIME = 0.f;
@@ -181,6 +182,7 @@ bool operator==(Coords lhs, Coords rhs) {
 
 class Action {
 public:
+	Action();
 	Action(const Coords target, const string& thrustStr);
 
 	void setTarget(const Coords traget) { this->target = target; }
@@ -207,8 +209,17 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+Action::Action() :
+	flags{ 0 }
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 Action::Action(const Coords target, const string& thrustStr) :
-	target(target)
+	target{ target },
+	flags{ 0 }
 {
 	if (BOOST == thrustStr) {
 		setFlag(BOOST_FLAG);
@@ -391,6 +402,9 @@ public:
 	float getAngle() const { return angle; }
 	int getNextCheckopoint() const { return nextCheckopoint; }
 
+	/// Initialize the Pod with default parameters
+	void init();
+
 	/// Reset the pod to its initial state
 	void reset();
 
@@ -493,18 +507,8 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Pod::Pod() :
-	initialTurnAngle{ INITIAL_ANGLE },
-	angle{ INITIAL_ANGLE },
-	initialTurnNextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
-	nextCheckopoint{ INITIAL_NEXT_CHECKPOINT },
-	initialTurnTurnsLeft{ INITIAL_NEXT_CHECKPOINT_TURNS_LEFT },
-	initialTurnPassedCheckpoints{ 0 },
-	passedCheckpoints{ 0 },
-	turnsLeft{ INITIAL_NEXT_CHECKPOINT_TURNS_LEFT },
-	initialTurnFlags{ 0 },
-	flags{ 0 }
-{
+Pod::Pod() {
+	init();
 }
 
 //*************************************************************************************************************
@@ -516,9 +520,28 @@ Pod::Pod(
 	const int vx,
 	const int vy,
 	const int angle,
-	const int nextCheckPointId
+	const int nextCheckPointIdArg
 ) {
-	fillData(x, y, vx, vy, angle, nextCheckopoint);
+	init();
+	fillData(x, y, vx, vy, angle, nextCheckPointIdArg);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::init() {
+	initialTurnAngle = INITIAL_ANGLE;
+	angle = INITIAL_ANGLE;
+	initialTurnNextCheckopoint = INITIAL_NEXT_CHECKPOINT;
+	nextCheckopoint = INITIAL_NEXT_CHECKPOINT;
+	initialSheildTurnsLeft = 0;
+	sheildTurnsLeft = 0;
+	initialTurnTurnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
+	initialTurnPassedCheckpoints = 0;
+	passedCheckpoints = 0;
+	turnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
+	initialTurnFlags = 0;
+	flags = 0;
 }
 
 //*************************************************************************************************************
@@ -566,12 +589,18 @@ void Pod::fillData(
 void Pod::rotate(const Coords target) {
 	float angleToTurn = calcDircetionToTurn(target);
 
-	// Can't turn by more than 18 in one turn
-	if (angleToTurn > MAX_ANGLE_PER_TURN) {
-		angleToTurn = MAX_ANGLE_PER_TURN;
+	if (!hasFlag(FIRST_TURN_FLAG)) {
+		// Can't turn by more than 18 in one turn
+		if (angleToTurn > MAX_ANGLE_PER_TURN) {
+			angleToTurn = MAX_ANGLE_PER_TURN;
+		}
+		else if (angleToTurn < -MAX_ANGLE_PER_TURN) {
+			angleToTurn = -MAX_ANGLE_PER_TURN;
+		}
 	}
-	else if (angleToTurn < -MAX_ANGLE_PER_TURN) {
-		angleToTurn = -MAX_ANGLE_PER_TURN;
+	else {
+		// Only the first pod could rotate without limits
+		unsetFlag(FIRST_TURN_FLAG);
 	}
 
 	angle += angleToTurn;
@@ -669,10 +698,10 @@ void Pod::applyAction(Action action) {
 	}
 
 	int thrustToApply = action.getThrust();
-	if (hasFlag(SHIELD_FLAG)) {
+	if (action.hasFlag(SHIELD_FLAG)) {
 		thrustToApply = 0;
 	}	
-	else if (hasFlag(BOOST_FLAG)) {
+	else if (action.hasFlag(BOOST_FLAG)) {
 		thrustToApply = BOOST_THRUST;
 	}
 
@@ -858,7 +887,8 @@ public:
 
 	/// Simulate the given array of actions, one by one for each turn
 	/// @param[in] actions the action for each turn to simulate
-	void simulate(const vector<vector<Action>>& turnActions);
+	/// @param[in] firstTurn true if the simulation is for the first turn
+	void simulate(const vector<vector<Action>>& turnActions, const bool firstTurn);
 
 	/// Simulate pods for the given actions
 	/// @param podsActiona commands for all pods
@@ -923,9 +953,13 @@ void RaceSimulator::fillPodData(
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void RaceSimulator::simulate(const vector<vector<Action>>& turnActions) {
+void RaceSimulator::simulate(const vector<vector<Action>>& turnActions, const bool firstTurn) {
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].reset();
+
+		if (firstTurn) {
+			pods[podActionIdx].setFlag(FIRST_TURN_FLAG);
+		}
 	}
 	
 	for (size_t actionIdx = 0; actionIdx < turnActions.size(); ++actionIdx) {

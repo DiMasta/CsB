@@ -158,7 +158,7 @@ TEST_CASE("Test Simulation of a turn!") {
 	Track track(checkPoints, actualCPCount);
 	RaceSimulator raceSimulator(pods, track);
 
-	raceSimulator.simulate(actions);
+	raceSimulator.simulate(actions, true);
 
 	SUBCASE("Tests after several turns") {
 		Pod cgSimulatedPods[PODS_COUNT] {
