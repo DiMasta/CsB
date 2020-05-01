@@ -120,6 +120,8 @@ struct Coords {
 	/// @return the closest point on the line
 	Coords closestPointOnLine(Coords linePointA, Coords linePointB) const;
 
+	friend bool operator==(Coords lhs, Coords rhs);
+
 	float x; ///< X Coordinate
 	float y; ///< Y Coordinate
 };
@@ -163,6 +165,13 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 	}
 
 	return clossestPoint;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool operator==(Coords lhs, Coords rhs) {
+	return lhs.x == rhs.x && lhs.y == rhs.y;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -452,6 +461,8 @@ public:
 	void setFlag(const unsigned int flag);
 	void unsetFlag(const unsigned int flag);
 	bool hasFlag(const unsigned int flag) const;
+
+	friend bool operator==(const Pod& lhs, const Pod& rhs);
 
 private:
 	Coords initialTurnPosition; ///< Where the pod starts the turn
@@ -799,6 +810,16 @@ bool Pod::hasFlag(const unsigned int flag) const {
 	return flag & flags;
 }
 
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool operator==(const Pod& lhs, const Pod& rhs) {
+	return
+		lhs.position == rhs.position &&
+		lhs.velocity == rhs.velocity &&
+		lhs.angle == rhs.angle;
+}
+
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -809,6 +830,8 @@ class RaceSimulator {
 public:
 	RaceSimulator() = default;
 	RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track);
+
+	const Pod& getPod(const int podIdx) const { return pods[podIdx]; };
 
 	/// Add the checkopoint, with the given coordinate, to the track
 	/// @param[in] checkpointX the X coordinate of the checkpoint ot add
@@ -835,11 +858,11 @@ public:
 
 	/// Simulate the given array of actions, one by one for each turn
 	/// @param[in] actions the action for each turn to simulate
-	void simulate(const vector<Action[PODS_COUNT]>& turnActions);
+	void simulate(const vector<vector<Action>>& turnActions);
 
 	/// Simulate pods for the given actions
 	/// @param podsActiona commands for all pods
-	void simulatePods(const Action (&podsActions)[PODS_COUNT]);
+	void simulatePods(const vector<Action>& podsActions);
 
 	/// Move all pods at once, considering their parameters
 	void movePods();
@@ -900,7 +923,7 @@ void RaceSimulator::fillPodData(
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void RaceSimulator::simulate(const vector<Action[PODS_COUNT]>& turnActions) {
+void RaceSimulator::simulate(const vector<vector<Action>>& turnActions) {
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].reset();
 	}
@@ -913,7 +936,7 @@ void RaceSimulator::simulate(const vector<Action[PODS_COUNT]>& turnActions) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void RaceSimulator::simulatePods(const Action(&podsActions)[PODS_COUNT]) {
+void RaceSimulator::simulatePods(const vector<Action>& podsActions) {
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].applyAction(podsActions[podActionIdx]);
 	}
