@@ -684,7 +684,8 @@ void Pod::applyThrust(const int thrust) {
 //*************************************************************************************************************
 
 void Pod::move(const float time) {
-
+	position.x += velocity.x * time;
+	position.y += velocity.y * time;
 }
 
 //*************************************************************************************************************
@@ -845,8 +846,7 @@ bool Pod::hasFlag(const unsigned int flag) const {
 bool operator==(const Pod& lhs, const Pod& rhs) {
 	return
 		lhs.position == rhs.position &&
-		lhs.velocity == rhs.velocity &&
-		lhs.angle == rhs.angle;
+		lhs.velocity == rhs.velocity;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1017,7 +1017,7 @@ void RaceSimulator::movePods() {
 			Collision col = checkForCollision(i, pods[i].getNextCheckopoint(), CollisionType::WITH_CHECKPOINT);
 
 			if (col.isValid() && previousCollision.isValid() && /*TURN_START_TIME == col->getCollisinTurnTime() &&*/ compareCollisions(previousCollision, col)) {
-				col = Collision();
+				col = INVALID_COLLISION;
 			}
 
 			// If the collision happens earlier than the current one we keep it
