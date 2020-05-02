@@ -57,6 +57,7 @@ static constexpr int TEAM_PODS_COUNT = PODS_COUNT / 2;
 static constexpr int POD_RADIUS = 400;
 static constexpr int INITIAL_ANGLE = -1;
 static constexpr int INITIAL_NEXT_CHECKPOINT = 1;
+static constexpr int INITIAL_CHECKPOINTS_PASSED = 1;
 static constexpr int INITIAL_NEXT_CHECKPOINT_TURNS_LEFT = 100;
 static constexpr int SHEILD_TURNS = 3;
 static constexpr int RACE_LAPS = 3;
@@ -471,6 +472,9 @@ public:
 	/// Conclude the turn
 	void endTurn();
 
+	/// Output the pods data
+	void debug() const;
+
 	/// Flags helpers
 	void setFlag(const unsigned int flag);
 	void unsetFlag(const unsigned int flag);
@@ -537,8 +541,8 @@ void Pod::init() {
 	initialSheildTurnsLeft = 0;
 	sheildTurnsLeft = 0;
 	initialTurnTurnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
-	initialTurnPassedCheckpoints = 0;
-	passedCheckpoints = 0;
+	initialTurnPassedCheckpoints = INITIAL_CHECKPOINTS_PASSED;
+	passedCheckpoints = INITIAL_CHECKPOINTS_PASSED;
 	turnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
 	initialTurnFlags = 0;
 	flags = 0;
@@ -716,8 +720,8 @@ void Pod::nextCPReached(const int chekpointsCountOnTrack) {
 	++passedCheckpoints;
 	nextCheckopoint = passedCheckpoints % chekpointsCountOnTrack;
 
-	// Fisrt time the 0th checkpoint does not counts
-	if (passedCheckpoints >= (RACE_LAPS * chekpointsCountOnTrack) - 1) {
+	// 0th checkpoint must be reached again
+	if (passedCheckpoints >= (RACE_LAPS * chekpointsCountOnTrack) + 1) {
 		setFlag(WINNER_FLAG); // :)
 	}
 }
@@ -817,6 +821,18 @@ void Pod::endTurn() {
 	--turnsLeft;
 
 	manageSheild();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::debug() const {
+	cout << static_cast<int>(position.x) << SPACE;
+	cout << static_cast<int>(position.y) << SPACE;
+	cout << static_cast<int>(velocity.x) << SPACE;
+	cout << static_cast<int>(velocity.y) << SPACE;
+	cout << static_cast<int>(angle) << SPACE;
+	cout << nextCheckopoint;
 }
 
 //*************************************************************************************************************
@@ -964,6 +980,14 @@ void RaceSimulator::simulate(const vector<vector<Action>>& turnActions, const bo
 	
 	for (size_t actionIdx = 0; actionIdx < turnActions.size(); ++actionIdx) {
 		simulatePods(turnActions[actionIdx]);
+
+#ifdef TESTS
+		cout << endl << actionIdx << endl;
+		for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
+			pods[podActionIdx].debug();
+			cout << endl;
+		}
+#endif // TESTS
 	}
 }
 
@@ -990,19 +1014,14 @@ void RaceSimulator::movePods() {
 	// This tracks the time during the turn. The goal is to reach 1.0
 	float t = TURN_START_TIME;
 
-	Collision previousCollision;
-	Collision firstCollision;
-
 	while (t < TURN_END_TIME) {
+		Collision firstCollision = INVALID_COLLISION;
+
 		// We look for all the collisions that are going to occur during the turn
 		for (int i = 0; i < PODS_COUNT; ++i) {
 			// Collision with another pod?
 			for (int j = i + 1; j < PODS_COUNT; ++j) {
 				Collision col = checkForCollision(i, j, CollisionType::WITH_POD);
-
-				if (col.isValid() && TURN_START_TIME == col.getCollisionTurnTime() && compareCollisions(previousCollision, col)) {
-					col = INVALID_COLLISION;
-				}
 
 				// If the collision occurs earlier than the one we currently have we keep it
 				if (col.isValid() && col.getCollisionTurnTime() + t < TURN_END_TIME &&
@@ -1015,10 +1034,6 @@ void RaceSimulator::movePods() {
 			// It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
 			// We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
 			Collision col = checkForCollision(i, pods[i].getNextCheckopoint(), CollisionType::WITH_CHECKPOINT);
-
-			if (col.isValid() && previousCollision.isValid() && /*TURN_START_TIME == col->getCollisinTurnTime() &&*/ compareCollisions(previousCollision, col)) {
-				col = INVALID_COLLISION;
-			}
 
 			// If the collision happens earlier than the current one we keep it
 			if (col.isValid() && col.getCollisionTurnTime() + t < TURN_END_TIME &&
@@ -1053,9 +1068,6 @@ void RaceSimulator::movePods() {
 
 			t += firstCollision.getCollisionTurnTime();
 		}
-
-		previousCollision = firstCollision;
-		firstCollision = INVALID_COLLISION;
 	}
 }
 
@@ -1079,10 +1091,11 @@ Collision RaceSimulator::checkForCollision(const int entityAIdx, const int entit
 		entityBPosition = track.getCheckpoint(entityBIdx);
 		entityBVelocity = Coords(0.f, 0.f);
 		entityBRadius = CHECKPOINT_RADIUS;
+		//entityBRadius = CHECKPOINT_RADIUS - POD_RADIUS; // Center of the Pod must be in the CP radius
 	}
 
 	// Square of the distance
-	float dist = entityAPosition.distanceSquare(entityBPosition);
+	float dist = roundf(entityAPosition.distanceSquare(entityBPosition));
 
 	// Sum of the radii squared
 	float sr = (float)(entityARadius + entityBRadius) * (entityARadius + entityBRadius);
