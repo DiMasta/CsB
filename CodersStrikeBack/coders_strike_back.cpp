@@ -862,7 +862,8 @@ bool Pod::hasFlag(const unsigned int flag) const {
 bool operator==(const Pod& lhs, const Pod& rhs) {
 	return
 		lhs.position == rhs.position &&
-		lhs.velocity == rhs.velocity;
+		lhs.velocity == rhs.velocity &&
+		lhs.nextCheckopoint == lhs.nextCheckopoint;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -982,11 +983,11 @@ void RaceSimulator::simulate(const vector<vector<Action>>& turnActions, const bo
 		simulatePods(turnActions[actionIdx]);
 
 #ifdef TESTS
-		cout << endl << actionIdx << endl;
-		for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
-			pods[podActionIdx].debug();
-			cout << endl;
-		}
+		//cout << endl << actionIdx << endl;
+		//for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
+		//	pods[podActionIdx].debug();
+		//	cout << endl;
+		//}
 #endif // TESTS
 	}
 }
@@ -1014,6 +1015,7 @@ void RaceSimulator::movePods() {
 	// This tracks the time during the turn. The goal is to reach 1.0
 	float t = TURN_START_TIME;
 
+	Collision previousCollision = INVALID_COLLISION;
 	while (t < TURN_END_TIME) {
 		Collision firstCollision = INVALID_COLLISION;
 
@@ -1024,8 +1026,11 @@ void RaceSimulator::movePods() {
 				Collision col = checkForCollision(i, j, CollisionType::WITH_POD);
 
 				// If the collision occurs earlier than the one we currently have we keep it
-				if (col.isValid() && col.getCollisionTurnTime() + t < TURN_END_TIME &&
-					(!firstCollision.isValid() || col.getCollisionTurnTime() < firstCollision.getCollisionTurnTime())) {
+				if (col.isValid() &&
+					!compareCollisions(previousCollision, col) &&
+					col.getCollisionTurnTime() + t < TURN_END_TIME &&
+					(!firstCollision.isValid() || col.getCollisionTurnTime() < firstCollision.getCollisionTurnTime())
+				) {
 					firstCollision = col;
 				}
 			}
@@ -1067,6 +1072,7 @@ void RaceSimulator::movePods() {
 			}
 
 			t += firstCollision.getCollisionTurnTime();
+			previousCollision = firstCollision;
 		}
 	}
 }
@@ -1090,12 +1096,12 @@ Collision RaceSimulator::checkForCollision(const int entityAIdx, const int entit
 	else {
 		entityBPosition = track.getCheckpoint(entityBIdx);
 		entityBVelocity = Coords(0.f, 0.f);
-		entityBRadius = CHECKPOINT_RADIUS;
-		//entityBRadius = CHECKPOINT_RADIUS - POD_RADIUS; // Center of the Pod must be in the CP radius
+		//entityBRadius = CHECKPOINT_RADIUS;
+		entityBRadius = CHECKPOINT_RADIUS - POD_RADIUS; // Center of the Pod must be in the CP radius
 	}
 
 	// Square of the distance
-	float dist = roundf(entityAPosition.distanceSquare(entityBPosition));
+	float dist = entityAPosition.distanceSquare(entityBPosition);
 
 	// Sum of the radii squared
 	float sr = (float)(entityARadius + entityBRadius) * (entityARadius + entityBRadius);
