@@ -64,10 +64,11 @@ static constexpr int RACE_LAPS = 3;
 static constexpr int BOOST_THRUST = 650;
 
 static constexpr unsigned int THRUST_MASK		= 0b0000'0000'0000'0000'0000'0000'1111'1111;
+static constexpr unsigned int RUNNER_FLAG		= 0b0000'0000'0000'0000'0000'0001'0000'0000;
+static constexpr unsigned int HUNTER_FLAG		= 0b0000'0000'0000'0000'0000'0010'0000'0000;
 static constexpr unsigned int SHIELD_FLAG		= 0b0000'0000'0000'0000'0100'0000'0000'0000;
 static constexpr unsigned int BOOST_FLAG		= 0b0000'0000'0000'0000'1000'0000'0000'0000;
 static constexpr unsigned int FIRST_TURN_FLAG	= 0b0000'0000'0000'0001'0000'0000'0000'0000;
-static constexpr unsigned int WINNER_FLAG		= 0b1000'0000'0000'0000'0000'0000'0000'0000;
 
 static constexpr float MAX_ANGLE_PER_TURN = 18.f;
 static constexpr float TURN_START_TIME = 0.f;
@@ -76,6 +77,8 @@ static constexpr float FRICTION = .85f;
 static constexpr float HALF_MOMENTUM = 120.f;
 static constexpr float MASS_WITH_SHEILD = 10.f;
 static constexpr float MASS_WITHOUT_SHEILD = 1.f;
+static constexpr float MINUS_INFINITY = numeric_limits<float>::min();
+static constexpr float PLUS_INFINITY = numeric_limits<float>::max();
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
@@ -83,6 +86,12 @@ enum class CollisionType {
 	INVALID = -1,
 	WITH_POD,
 	WITH_CHECKPOINT,
+};
+
+enum class Team {
+	INVALID = -1,
+	MY,
+	ENEMY,
 };
 
 //-------------------------------------------------------------------------------------------------------------
@@ -472,6 +481,13 @@ public:
 	/// Conclude the turn
 	void endTurn();
 
+	/// Return true if the pod has won the race
+	/// @param[in] chekpointsCountOnTrack the CPs count for the race
+	bool winner(const int chekpointsCountOnTrack) const;
+
+	/// Retunr true if the Pod is eliminated form the race
+	bool eliminated() const;
+
 	/// Output the pods data
 	void debug() const;
 
@@ -719,11 +735,6 @@ void Pod::applyAction(Action action) {
 void Pod::nextCPReached(const int chekpointsCountOnTrack) {
 	++passedCheckpoints;
 	nextCheckopoint = passedCheckpoints % chekpointsCountOnTrack;
-
-	// 0th checkpoint must be reached again
-	if (passedCheckpoints >= (RACE_LAPS * chekpointsCountOnTrack) + 1) {
-		setFlag(WINNER_FLAG); // :)
-	}
 }
 
 //*************************************************************************************************************
@@ -821,6 +832,21 @@ void Pod::endTurn() {
 	--turnsLeft;
 
 	manageSheild();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Pod::winner(const int chekpointsCountOnTrack) const {
+	// 0th checkpoint must be reached again
+	return passedCheckpoints >= (RACE_LAPS * chekpointsCountOnTrack) + 1;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Pod::eliminated() const {
+	return turnsLeft <= 0;
 }
 
 //*************************************************************************************************************
@@ -927,10 +953,23 @@ public:
 	/// @return true if the collisions are identical false otherwise
 	bool compareCollisions(const Collision& collisionA, const Collision& collisionB);
 
+	/// Evaluate the current state of the pods
+	/// @return the evaluation for the pods
+	float evaluate();
+
 private:
+	/// Check if the given team have won
+	/// @param[in] team which team to check
+	/// @return true if the given team have won the race
+	bool teamWon(const Team team);
+
+	/// Check if the given team have won
+	/// @param[in] team which team to check
+	/// @return true if the given team have won the race
+	bool teamLost(const Team team);
+
 	Pod pods[PODS_COUNT]; ///< Pods participating in the race
 	Track track; ///< The track on which the race is performed
-	// Minimax
 };
 
 //*************************************************************************************************************
@@ -1177,6 +1216,58 @@ bool RaceSimulator::compareCollisions(const Collision& collisionA, const Collisi
 	const bool identicalBEntities = collisionA.getEntityBIdx() == collisionB.getEntityBIdx();
 
 	return identicalTypes && identicalAEntities && identicalBEntities;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float RaceSimulator::evaluate() {
+	float evaluation = 0.f;
+
+	if (teamWon(Team::ENEMY) || teamLost(Team::MY)) {
+		evaluation = MINUS_INFINITY;
+	}
+	else if (teamLost(Team::ENEMY) || teamWon(Team::MY)) {
+		evaluation = PLUS_INFINITY;
+	}
+
+	return evaluation;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool RaceSimulator::teamWon(const Team team) {
+	bool won = false;
+	const int firstPodIdx = (Team::MY == team) ? 0 : TEAM_PODS_COUNT;
+	const int lastPodIdx = (Team::MY == team) ? (TEAM_PODS_COUNT - 1) : PODS_COUNT - 1;
+
+	for (int podIdx = firstPodIdx; podIdx <= lastPodIdx; ++podIdx) {
+		if (pods[podIdx].winner(track.getCheckpointsCount())) {
+			won = true;
+			break;
+		}
+	}
+
+	return won;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool RaceSimulator::teamLost(const Team team) {
+	bool lost = false;
+	const int firstPodIdx = (Team::MY == team) ? 0 : TEAM_PODS_COUNT;
+	const int lastPodIdx = (Team::MY == team) ? (TEAM_PODS_COUNT - 1) : PODS_COUNT - 1;
+
+	for (int podIdx = firstPodIdx; podIdx <= lastPodIdx; ++podIdx) {
+		if (pods[podIdx].eliminated()) {
+			lost = true;
+			break;
+		}
+	}
+
+	return lost;
 }
 
 //-------------------------------------------------------------------------------------------------------------
