@@ -1269,6 +1269,7 @@ bool RaceSimulator::compareCollisions(const Collision& collisionA, const Collisi
 //*************************************************************************************************************
 
 void RaceSimulator::setPodsRoles() {
+	// Assuming each team has 2 Pods
 	Pod& myPod0 = pods[0];
 	Pod& myPod1 = pods[1];
 	myPod0.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
