@@ -81,7 +81,10 @@ static constexpr float MINUS_INFINITY = numeric_limits<float>::min();
 static constexpr float PLUS_INFINITY = numeric_limits<float>::max();
 
 // Weights
-static constexpr float PASSED_CPS_WEIGHT = 50'000.f;
+static constexpr float PASSED_CPS_WEIGHT		= 50'000.f;
+static constexpr float SCORE_DIFF_WEIGHT		= 50.f;
+static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
+static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
@@ -920,6 +923,12 @@ public:
 	RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track);
 
 	const Pod& getPod(const int podIdx) const { return pods[podIdx]; };
+	
+	/// Return the pod from the team, with the flag
+	/// @param[in] team the team to check
+	/// @param[in] flag the flag to check
+	/// @return the wanted pod
+	const Pod& getPod(const Team team, const unsigned int flag) const;
 
 	/// Add the checkopoint, with the given coordinate, to the track
 	/// @param[in] checkpointX the X coordinate of the checkpoint ot add
@@ -997,6 +1006,25 @@ RaceSimulator::RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track) :
 	for (int podIdx = 0; podIdx < PODS_COUNT; ++podIdx) {
 		this->pods[podIdx] = pods[podIdx];
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+const Pod& RaceSimulator::getPod(const Team team, const unsigned int flag) const {
+	const Pod* pod = &pods[0]; //!!!
+
+	const int firstPodIdx = (Team::MY == team) ? 0 : TEAM_PODS_COUNT;
+	const int lastPodIdx = (Team::MY == team) ? (TEAM_PODS_COUNT - 1) : PODS_COUNT - 1;
+
+	for (int podIdx = firstPodIdx; podIdx <= lastPodIdx; ++podIdx) {
+		pod = &pods[podIdx];
+		if (pod && pod->hasFlag(flag)) {
+			break;
+		}
+	}
+
+	return *pod;
 }
 
 //*************************************************************************************************************
@@ -1247,7 +1275,14 @@ float RaceSimulator::evaluate() {
 		evaluation = PLUS_INFINITY;
 	}
 	else {
+		const Pod& myRunner = getPod(Team::MY, RUNNER_FLAG);
+		const Pod& myHunter = getPod(Team::MY, HUNTER_FLAG);
+		const Pod& enemyRunner = getPod(Team::ENEMY, RUNNER_FLAG);
+		const Pod& enemyHUnter = getPod(Team::ENEMY, HUNTER_FLAG);
 
+		evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
+		evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
+		evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
 	}
 
 	return evaluation;
