@@ -978,6 +978,9 @@ public:
 	/// @return true if the collisions are identical false otherwise
 	bool compareCollisions(const Collision& collisionA, const Collision& collisionB);
 
+	/// Set the roles of each pod in each team
+	void setPodsRoles();
+
 	/// Evaluate the current state of the pods
 	/// @return the evaluation for the pods
 	float evaluate();
@@ -1265,6 +1268,40 @@ bool RaceSimulator::compareCollisions(const Collision& collisionA, const Collisi
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void RaceSimulator::setPodsRoles() {
+	Pod& myPod0 = pods[0];
+	Pod& myPod1 = pods[1];
+	myPod0.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
+	myPod1.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
+
+	if (myPod0.score(track) > myPod1.score(track)) {
+		myPod0.setFlag(RUNNER_FLAG);
+		myPod1.setFlag(HUNTER_FLAG);
+	}
+	else {
+		myPod0.setFlag(HUNTER_FLAG);
+		myPod1.setFlag(RUNNER_FLAG);
+	}
+
+	Pod& enemyPod0 = pods[2];
+	Pod& enemyPod1 = pods[3];
+	enemyPod0.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
+	enemyPod1.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
+
+	if (enemyPod0.score(track) > enemyPod1.score(track)) {
+		enemyPod0.setFlag(RUNNER_FLAG);
+		enemyPod1.setFlag(HUNTER_FLAG);
+	}
+	else {
+		enemyPod0.setFlag(HUNTER_FLAG);
+		enemyPod1.setFlag(RUNNER_FLAG);
+	}
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 float RaceSimulator::evaluate() {
 	float evaluation = 0.f;
 
@@ -1486,6 +1523,7 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
+	raceSimulator.setPodsRoles();
 }
 
 //*************************************************************************************************************
