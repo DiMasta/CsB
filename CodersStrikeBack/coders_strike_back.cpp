@@ -80,6 +80,9 @@ static constexpr float MASS_WITHOUT_SHEILD = 1.f;
 static constexpr float MINUS_INFINITY = numeric_limits<float>::min();
 static constexpr float PLUS_INFINITY = numeric_limits<float>::max();
 
+// Weights
+static constexpr float PASSED_CPS_WEIGHT = 50'000.f;
+
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
 enum class CollisionType {
@@ -488,6 +491,11 @@ public:
 	/// Retunr true if the Pod is eliminated form the race
 	bool eliminated() const;
 
+	/// Evaluate the pod
+	/// @param[in] track the information for the checkpoitns
+	/// @return the score from the evaluation
+	float score(const Track& track) const;
+
 	/// Output the pods data
 	void debug() const;
 
@@ -847,6 +855,14 @@ bool Pod::winner(const int chekpointsCountOnTrack) const {
 
 bool Pod::eliminated() const {
 	return turnsLeft <= 0;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Pod::score(const Track& track) const {
+	const float distanceToNextCP = position.distance(track.getCheckpoint(nextCheckopoint));
+	return (PASSED_CPS_WEIGHT * passedCheckpoints) - distanceToNextCP;
 }
 
 //*************************************************************************************************************
@@ -1229,6 +1245,9 @@ float RaceSimulator::evaluate() {
 	}
 	else if (teamLost(Team::ENEMY) || teamWon(Team::MY)) {
 		evaluation = PLUS_INFINITY;
+	}
+	else {
+
 	}
 
 	return evaluation;
