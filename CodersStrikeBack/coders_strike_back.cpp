@@ -21,12 +21,12 @@
 
 using namespace std;
 
-//#define REDIRECT_INPUT
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
-#define TESTS
+//#define TESTS
 #define M_PI 3.14159265358979323846
 
 //static const string INPUT_FILE_NAME = "input.txt";
@@ -64,6 +64,9 @@ static constexpr int RACE_LAPS = 3;
 static constexpr int BOOST_THRUST = 650;
 
 static constexpr unsigned int THRUST_MASK		= 0b0000'0000'0000'0000'0000'0000'1111'1111;
+static constexpr unsigned int ANGLE_MASK		= 0b0111'1110'0000'0000'0000'0000'0000'0000;
+static constexpr unsigned int ANGLE_MASK_SHIFT	= 21;
+
 static constexpr unsigned int RUNNER_FLAG		= 0b0000'0000'0000'0000'0000'0001'0000'0000;
 static constexpr unsigned int HUNTER_FLAG		= 0b0000'0000'0000'0000'0000'0010'0000'0000;
 static constexpr unsigned int SHIELD_FLAG		= 0b0000'0000'0000'0000'0100'0000'0000'0000;
@@ -86,7 +89,24 @@ static constexpr float SCORE_DIFF_WEIGHT		= 50.f;
 static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
 static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 
+// Algorithms
+static constexpr int MAX_DEPTH = 4;
+
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
+
+static constexpr int THRUSTS_TO_TRY_COUNT = 2;
+static const int THRUSTS_TO_TRY[THRUSTS_TO_TRY_COUNT] = {
+	0,
+	100
+};
+
+static const float ALL_ANGLES[] = {-18.f,-17.f,-16.f,-15.f,-14.f,-13.f,-12.f,-11.f,10.f,-9.f,-8.f,-7.f,-6.f,-5.f,-4.f,-3.f,-2.f,-1.f,0.f,1.f,2.f,3.f,4.f,5.f,6.f,7.f,8.f,9.f,10.f,11.f,12.f,13.f,14.f,15.f,16.f,17.f,18.f };
+static constexpr int ANGLES_TO_TRY_COUNT = 3;
+static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
+	0,	// -18
+	18,	// 0
+	36	// 18
+};
 
 enum class CollisionType {
 	INVALID = -1,
@@ -199,10 +219,19 @@ bool operator==(Coords lhs, Coords rhs) {
 class Action {
 public:
 	Action();
+	Action(const int angleIdx, const int thrust);
 	Action(const Coords target, const string& thrustStr);
 
 	void setTarget(const Coords traget) { this->target = target; }
 	Coords getTarget() const { return target; }
+
+	/// Update the bits for the angle index
+	/// @param[in] angleIdx the angle index
+	void setAngleIdx(const int angleIdx);
+
+	/// Extract the angle index value from flags
+	/// @return the integer for the angle index
+	int getAngleIdx() const;
 
 	/// Update the bits for the thrust power
 	/// @param[in] thrust the thrust power
@@ -233,6 +262,16 @@ Action::Action() :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+Action::Action(const int angleIdx, const int thrust) :
+	flags{ 0 }
+{
+	setAngleIdx(angleIdx);
+	setThrust(thrust);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 Action::Action(const Coords target, const string& thrustStr) :
 	target{ target },
 	flags{ 0 }
@@ -246,6 +285,23 @@ Action::Action(const Coords target, const string& thrustStr) :
 	else {
 		setThrust(stoi(thrustStr));
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::setAngleIdx(const int angleIdx) {
+	const int shiftedAngleIdx = angleIdx << ANGLE_MASK_SHIFT;
+	flags &= ~ANGLE_MASK; // First zero out only the bits for the angleIdx
+	flags |= static_cast<unsigned int>(shiftedAngleIdx); // Assign the new angleIdx
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Action::getAngleIdx() const {
+	unsigned int extractedAngleIdx = flags >> ANGLE_MASK_SHIFT;
+	return static_cast<int>(extractedAngleIdx);
 }
 
 //*************************************************************************************************************
@@ -446,7 +502,7 @@ public:
 
 	/// Rotate Pod by the given angle
 	/// @param[in] rotAngle the rotate angle
-	void rotate(const float rotAngle);
+	void rotate(float rotAngle);
 
 	/// Activate Shield which will hold for 3 turns
 	void activateShield();
@@ -489,7 +545,7 @@ public:
 	float truncate(const float toTruncate);
 
 	/// Conclude the turn
-	void endTurn();
+	void turnEnd();
 
 	/// Return true if the pod has won the race
 	/// @param[in] chekpointsCountOnTrack the CPs count for the race
@@ -604,6 +660,15 @@ void Pod::fillData(
 	const int nextCheckPointId
 )
 {
+	if (nextCheckPointId != this->nextCheckopoint) {
+		// Checkpooint reached
+		initialTurnTurnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
+		turnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
+	}
+	else {
+		initialTurnTurnsLeft = turnsLeft; // turnsLeft are managed in turnEnd()
+	}
+
 	this->initialTurnPosition = { x, y };
 	this->position = { x, y };
 	this->initialTurnVelocity= { vx, vy };
@@ -611,11 +676,7 @@ void Pod::fillData(
 	this->initialTurnAngle = static_cast<float>(angle);
 	this->angle = static_cast<float>(angle);
 	this->initialTurnNextCheckopoint = nextCheckPointId;
-	this->nextCheckopoint= nextCheckPointId;
-
-	// TODO:
-	// shield
-	// turnsLeft
+	this->nextCheckopoint = nextCheckPointId;
 }
 
 //*************************************************************************************************************
@@ -623,14 +684,20 @@ void Pod::fillData(
 
 void Pod::rotate(const Coords target) {
 	float angleToTurn = calcDircetionToTurn(target);
+	rotate(angleToTurn);
+}
 
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::rotate(float rotAngle) {
 	if (!hasFlag(FIRST_TURN_FLAG)) {
 		// Can't turn by more than 18 in one turn
-		if (angleToTurn > MAX_ANGLE_PER_TURN) {
-			angleToTurn = MAX_ANGLE_PER_TURN;
+		if (rotAngle > MAX_ANGLE_PER_TURN) {
+			rotAngle = MAX_ANGLE_PER_TURN;
 		}
-		else if (angleToTurn < -MAX_ANGLE_PER_TURN) {
-			angleToTurn = -MAX_ANGLE_PER_TURN;
+		else if (rotAngle < -MAX_ANGLE_PER_TURN) {
+			rotAngle = -MAX_ANGLE_PER_TURN;
 		}
 	}
 	else {
@@ -638,13 +705,6 @@ void Pod::rotate(const Coords target) {
 		unsetFlag(FIRST_TURN_FLAG);
 	}
 
-	rotate(angleToTurn);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Pod::rotate(const float rotAngle) {
 	angle += rotAngle; // Assuming rotAngle is in boundaries
 
 	// The % operator is slow. If we can avoid it, it's better.
@@ -734,7 +794,11 @@ void Pod::move(const float time) {
 //*************************************************************************************************************
 
 void Pod::applyAction(Action action) {
+#ifdef TESTS
 	rotate(action.getTarget());
+#else
+	rotate(ALL_ANGLES[action.getAngleIdx()]);
+#endif // TESTS
 
 	if (action.hasFlag(SHIELD_FLAG)) {
 		activateShield();
@@ -843,7 +907,7 @@ float Pod::truncate(const float toTruncate) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::endTurn() {
+void Pod::turnEnd() {
 	position.x = round(position.x);
 	position.y = round(position.y);
 	velocity.x = truncate(velocity.x * FRICTION);
@@ -988,7 +1052,7 @@ public:
 	/// Simulate the given array of actions, one by one for each turn
 	/// @param[in] actions the action for each turn to simulate
 	/// @param[in] firstTurn true if the simulation is for the first turn
-	void simulate(const vector<vector<Action>>& turnActions, const bool firstTurn);
+	void simulate(const vector<vector<Action>>& turnActions, const bool firstTurn = false);
 
 	/// Simulate pods for the given actions
 	/// @param podsActiona commands for all pods
@@ -1012,6 +1076,9 @@ public:
 
 	/// Set the roles of each pod in each team
 	void setPodsRoles();
+
+	/// Update pods for the end of the turn
+	void turnEnd();
 
 	/// Evaluate the current state of the pods
 	/// @return the evaluation for the pods
@@ -1124,7 +1191,7 @@ void RaceSimulator::simulatePods(const vector<Action>& podsActions) {
 	movePods();
 
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
-		pods[podActionIdx].endTurn();
+		pods[podActionIdx].turnEnd();
 	}
 }
 
@@ -1336,6 +1403,15 @@ void RaceSimulator::setPodsRoles() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void RaceSimulator::turnEnd() {
+	for (int podIdx = 0; podIdx < PODS_COUNT; ++podIdx) {
+		pods[podIdx].turnEnd();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 float RaceSimulator::evaluate() {
 	float evaluation = 0.f;
 
@@ -1400,6 +1476,78 @@ bool RaceSimulator::teamLost(const Team team) {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+class AiSolver {
+public:
+	AiSolver(RaceSimulator& raceSimulator);
+
+	/// Decide the best action for the current state of the pods in raceSimulator
+	void solve();
+
+	/// Try several actions for pods and choose the best one
+	/// @param[in] actionsToTry the to simulate
+	/// @param[in] depth the depth of the search
+	void greedySearch(vector<vector<Action>> actionsToTry, const int depth);
+
+private:
+	Action turnActions[TEAM_PODS_COUNT]; ///< Turn action for pods
+	RaceSimulator& raceSimulator; ///< Pods controller
+	float bestEvaluation; ///< Biggest evaluation from simulations
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+AiSolver::AiSolver(RaceSimulator& raceSimulator) :
+	raceSimulator(raceSimulator),
+	bestEvaluation(MINUS_INFINITY)
+{
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void AiSolver::solve() {
+	vector<Action> emptyActions;
+	vector<vector<Action>> actionsToTry{ emptyActions };
+	greedySearch(actionsToTry, 0);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void AiSolver::greedySearch(vector<vector<Action>> actionsToTry, const int depth) {
+	vector<vector<Action>> newActionsToTry = actionsToTry;
+
+	if (depth && 0 == (depth % PODS_COUNT)) {
+		raceSimulator.simulate(actionsToTry);
+		const float simEvaluation = raceSimulator.evaluate();
+		if (simEvaluation > bestEvaluation) {
+			bestEvaluation = simEvaluation;
+			turnActions[0] = actionsToTry[0][0];
+			turnActions[1] = actionsToTry[0][1];
+		}
+		
+		newActionsToTry.push_back({});
+	}
+
+	if (MAX_DEPTH == depth) {
+		return;
+	}
+
+	for (int thrustIdx = 0; thrustIdx < THRUSTS_TO_TRY_COUNT; ++thrustIdx) {
+		for (int angleIdx = 0; angleIdx < ANGLES_TO_TRY_COUNT; ++angleIdx) {
+			newActionsToTry.end()->push_back({ ANGLES_TO_TRY[angleIdx], THRUSTS_TO_TRY[thrustIdx] });
+			greedySearch(newActionsToTry, 1 + depth);
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 class Game {
 public:
 	Game();
@@ -1421,6 +1569,7 @@ public:
 private:
 	// Game specific members
 	RaceSimulator raceSimulator; ///< Whole race manager
+	AiSolver aiSolver;
 
 	int turnsCount;
 	int stopGame;
@@ -1430,6 +1579,7 @@ private:
 //*************************************************************************************************************
 
 Game::Game() :
+	aiSolver{ raceSimulator },
 	turnsCount{ 0 },
 	stopGame{ false }
 {
@@ -1558,12 +1708,21 @@ void Game::getTurnInput() {
 
 void Game::turnBegin() {
 	raceSimulator.setPodsRoles();
+	aiSolver.solve();
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::makeTurn() {
+	//const Action pod0Action = aiSolver.getTurnAction(0);
+	//raceSimulator.manageTurnAction(pod0Action, 0);
+	//cout << pod0Action << endl;
+
+	//const Action pod1Action = aiSolver.getTurnAction(1);
+	//raceSimulator.manageTurnAction(pod1Action, 1);
+	//cout << pod1Action << endl;
+
 	if (0 == turnsCount) {
 		cout << "13284 5513 BOOST" << endl;
 	}
@@ -1578,6 +1737,8 @@ void Game::makeTurn() {
 //*************************************************************************************************************
 
 void Game::turnEnd() {
+	raceSimulator.turnEnd();
+
 	++turnsCount;
 }
 
