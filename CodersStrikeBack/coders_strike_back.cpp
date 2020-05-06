@@ -500,12 +500,12 @@ public:
 	float score(const Track& track) const;
 
 	/// Output the pods data
-	void debug() const;
+	void debug(const Track& track) const;
 
 	/// Flags helpers
-	void setFlag(const unsigned int flag);
-	void unsetFlag(const unsigned int flag);
-	bool hasFlag(const unsigned int flag) const;
+	void setFlag(const unsigned int flag, const bool initialTurn = false);
+	void unsetFlag(const unsigned int flag, const bool initialTurn = false);
+	bool hasFlag(const unsigned int flag, const bool initialTurn = false) const;
 
 	friend bool operator==(const Pod& lhs, const Pod& rhs);
 
@@ -871,34 +871,55 @@ float Pod::score(const Track& track) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::debug() const {
+void Pod::debug(const Track& track) const {
 	cout << static_cast<int>(position.x) << SPACE;
 	cout << static_cast<int>(position.y) << SPACE;
 	cout << static_cast<int>(velocity.x) << SPACE;
 	cout << static_cast<int>(velocity.y) << SPACE;
 	cout << static_cast<int>(angle) << SPACE;
-	cout << nextCheckopoint;
+	cout << nextCheckopoint << endl;
+
+	if (hasFlag(RUNNER_FLAG)) {
+		cout << "RUNNER:\t" << score(track);
+	}
+	else {
+		cout << "HUNTER:\t" << score(track);
+	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::setFlag(const unsigned int flag) {
+void Pod::setFlag(const unsigned int flag, const bool initialTurn) {
 	flags |= flag;
+
+	if (initialTurn) {
+		initialTurnFlags |= flag;
+	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Pod::unsetFlag(const unsigned int flag) {
+void Pod::unsetFlag(const unsigned int flag, const bool initialTurn) {
 	flags &= ~flag;
+
+	if (initialTurn) {
+		initialTurnFlags &= ~flag;
+	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool Pod::hasFlag(const unsigned int flag) const {
-	return flag & flags;
+bool Pod::hasFlag(const unsigned int flag, const bool initialTurn) const {
+	bool has = flag & flags;
+
+	if (initialTurn) {
+		has = flag & initialTurnFlags;
+	}
+
+	return has;
 }
 
 //*************************************************************************************************************
@@ -1069,11 +1090,13 @@ void RaceSimulator::simulate(const vector<vector<Action>>& turnActions, const bo
 		simulatePods(turnActions[actionIdx]);
 
 #ifdef TESTS
-		//cout << endl << actionIdx << endl;
-		//for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
-		//	pods[podActionIdx].debug();
-		//	cout << endl;
-		//}
+		cout << endl << actionIdx << endl;
+		for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
+			pods[podActionIdx].debug(track);
+			cout << endl;
+		}
+
+		cout << "Evaluation: " << evaluate() << endl;
 #endif // TESTS
 	}
 }
@@ -1272,32 +1295,31 @@ void RaceSimulator::setPodsRoles() {
 	// Assuming each team has 2 Pods
 	Pod& myPod0 = pods[0];
 	Pod& myPod1 = pods[1];
-	myPod0.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
-	myPod1.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
+	myPod0.unsetFlag(RUNNER_FLAG | HUNTER_FLAG, true);
+	myPod1.unsetFlag(RUNNER_FLAG | HUNTER_FLAG, true);
 
 	if (myPod0.score(track) > myPod1.score(track)) {
-		myPod0.setFlag(RUNNER_FLAG);
-		myPod1.setFlag(HUNTER_FLAG);
+		myPod0.setFlag(RUNNER_FLAG, true);
+		myPod1.setFlag(HUNTER_FLAG, true);
 	}
 	else {
-		myPod0.setFlag(HUNTER_FLAG);
-		myPod1.setFlag(RUNNER_FLAG);
+		myPod0.setFlag(HUNTER_FLAG, true);
+		myPod1.setFlag(RUNNER_FLAG, true);
 	}
 
 	Pod& enemyPod0 = pods[2];
 	Pod& enemyPod1 = pods[3];
-	enemyPod0.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
-	enemyPod1.unsetFlag(RUNNER_FLAG | HUNTER_FLAG);
+	enemyPod0.unsetFlag(RUNNER_FLAG | HUNTER_FLAG, true);
+	enemyPod1.unsetFlag(RUNNER_FLAG | HUNTER_FLAG, true);
 
 	if (enemyPod0.score(track) > enemyPod1.score(track)) {
-		enemyPod0.setFlag(RUNNER_FLAG);
-		enemyPod1.setFlag(HUNTER_FLAG);
+		enemyPod0.setFlag(RUNNER_FLAG, true);
+		enemyPod1.setFlag(HUNTER_FLAG, true);
 	}
 	else {
-		enemyPod0.setFlag(HUNTER_FLAG);
-		enemyPod1.setFlag(RUNNER_FLAG);
+		enemyPod0.setFlag(HUNTER_FLAG, true);
+		enemyPod1.setFlag(RUNNER_FLAG, true);
 	}
-
 }
 
 //*************************************************************************************************************
