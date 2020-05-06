@@ -444,6 +444,10 @@ public:
 	/// @param[in] target the target point towards which to rotate the Pod
 	void rotate(const Coords target);
 
+	/// Rotate Pod by the given angle
+	/// @param[in] rotAngle the rotate angle
+	void rotate(const float rotAngle);
+
 	/// Activate Shield which will hold for 3 turns
 	void activateShield();
 
@@ -634,7 +638,14 @@ void Pod::rotate(const Coords target) {
 		unsetFlag(FIRST_TURN_FLAG);
 	}
 
-	angle += angleToTurn;
+	rotate(angleToTurn);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Pod::rotate(const float rotAngle) {
+	angle += rotAngle; // Assuming rotAngle is in boundaries
 
 	// The % operator is slow. If we can avoid it, it's better.
 	if (angle >= 360.f) {
