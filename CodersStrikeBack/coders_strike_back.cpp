@@ -1255,7 +1255,8 @@ void RaceSimulator::movePods() {
 				Collision col = checkForCollision(i, j, CollisionType::WITH_POD);
 
 				// If the collision occurs earlier than the one we currently have we keep it
-				if (col.isValid() &&
+				if (col.getCollisionTurnTime() > 0.f &&
+					col.isValid() &&
 					!compareCollisions(previousCollision, col) &&
 					col.getCollisionTurnTime() + t < TURN_END_TIME &&
 					(!firstCollision.isValid() || col.getCollisionTurnTime() < firstCollision.getCollisionTurnTime())
@@ -1570,7 +1571,7 @@ void AiSolver::solve() {
 //*************************************************************************************************************
 
 void AiSolver::greedySearch(vector<vector<Action>> actionsToTry, const int depth) {
-	if (depth && 0 == (depth % PODS_COUNT)) {
+	if (MAX_DEPTH == depth) {
 		raceSimulator.simulate(actionsToTry);
 		const float simEvaluation = raceSimulator.evaluate();
 		if (simEvaluation > bestEvaluation) {
@@ -1578,9 +1579,7 @@ void AiSolver::greedySearch(vector<vector<Action>> actionsToTry, const int depth
 			turnActions[0] = actionsToTry[0][0];
 			turnActions[1] = actionsToTry[0][1];
 		}
-	}
 
-	if (MAX_DEPTH == depth) {
 		return;
 	}
 
