@@ -100,7 +100,7 @@ static const int THRUSTS_TO_TRY[THRUSTS_TO_TRY_COUNT] = {
 	100
 };
 
-static const float ALL_ANGLES[] = {-18.f,-17.f,-16.f,-15.f,-14.f,-13.f,-12.f,-11.f,10.f,-9.f,-8.f,-7.f,-6.f,-5.f,-4.f,-3.f,-2.f,-1.f,0.f,1.f,2.f,3.f,4.f,5.f,6.f,7.f,8.f,9.f,10.f,11.f,12.f,13.f,14.f,15.f,16.f,17.f,18.f };
+static const float ALL_ANGLES[] = { -18.f, -17.f, -16.f, -15.f, -14.f, -13.f, -12.f, -11.f, 10.f, -9.f, -8.f, -7.f, -6.f, -5.f, -4.f, -3.f, -2.f, -1.f, 0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f, 10.f, 11.f, 12.f, 13.f, 14.f, 15.f, 16.f, 17.f, 18.f };
 static constexpr int ANGLES_TO_TRY_COUNT = 3;
 static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 	0,	// -18
@@ -241,6 +241,11 @@ public:
 	/// @return the integer for the thrust
 	int getThrust() const;
 
+	/// Output the action for in CG format
+	/// @param[in] podPosition the current position of the pod
+	/// @param[in] podAngle the current angle of the pod
+	void output(const Coords podPosition, const float podAngle) const;
+
 	/// Flags helpers
 	void setFlag(const unsigned int flag);
 	void unsetFlag(const unsigned int flag);
@@ -317,6 +322,36 @@ void Action::setThrust(const int thrust) {
 
 int Action::getThrust() const {
 	return static_cast<int>(THRUST_MASK & flags);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::output(const Coords podPosition, const float podAngle) const {
+	float a = podAngle + ALL_ANGLES[getAngleIdx()];
+
+	if (a >= 360.f) {
+		a = a - 360.f;
+	}
+	else if (a < 0.f) {
+		a += 360.f;
+	}
+
+	// Look for a point corresponding to the angle we want
+	// Multiply by 10000.0 to limit rounding errors
+	a = a * static_cast<float>(M_PI / 180.0);
+	float px = podPosition.x + cos(a) * 10000.f;
+	float py = podPosition.y + sin(a) * 10000.f;
+
+	if (hasFlag(SHIELD_FLAG)) {
+		cout << static_cast<int>(round(px)) << SPACE << static_cast<int>(round(py)) << SPACE << "SHIELD" << endl;
+	}
+	else if (hasFlag(BOOST_FLAG)) {
+		cout << static_cast<int>(round(px)) << SPACE << static_cast<int>(round(py)) << SPACE << "BOOST" << endl;
+	}
+	else {
+		cout << static_cast<int>(round(px)) << SPACE << static_cast<int>(round(py)) << SPACE << getThrust() << endl;
+	}
 }
 
 //*************************************************************************************************************
@@ -705,7 +740,7 @@ void Pod::rotate(float rotAngle) {
 		unsetFlag(FIRST_TURN_FLAG);
 	}
 
-	angle += rotAngle; // Assuming rotAngle is in boundaries
+	angle += rotAngle;
 
 	// The % operator is slow. If we can avoid it, it's better.
 	if (angle >= 360.f) {
@@ -1080,6 +1115,11 @@ public:
 	/// Update pods for the end of the turn
 	void turnEnd();
 
+	/// Consider the turn action for the given pod
+	/// @param[in] turnAction the action which the Pod makes
+	/// @param[in] podIdx the pod index which makes the turn
+	void manageTurnAction(const Action turnAction, const int podIdx);
+
 	/// Evaluate the current state of the pods
 	/// @return the evaluation for the pods
 	float evaluate();
@@ -1412,6 +1452,15 @@ void RaceSimulator::turnEnd() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void RaceSimulator::manageTurnAction(const Action turnAction, const int podIdx) {
+	if (turnAction.hasFlag(SHIELD_FLAG)) {
+		pods[podIdx].activateShield();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 float RaceSimulator::evaluate() {
 	float evaluation = 0.f;
 
@@ -1479,6 +1528,8 @@ bool RaceSimulator::teamLost(const Team team) {
 class AiSolver {
 public:
 	AiSolver(RaceSimulator& raceSimulator);
+
+	Action getTurnAction(const int actionIdx) const { return turnActions[actionIdx]; }
 
 	/// Decide the best action for the current state of the pods in raceSimulator
 	void solve();
@@ -1715,22 +1766,22 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	//const Action pod0Action = aiSolver.getTurnAction(0);
-	//raceSimulator.manageTurnAction(pod0Action, 0);
-	//cout << pod0Action << endl;
+	const Action pod0Action = aiSolver.getTurnAction(0);
+	raceSimulator.manageTurnAction(pod0Action, 0);
+	pod0Action.output(raceSimulator.getPod(0).getPosition(), raceSimulator.getPod(0).getAngle());
 
-	//const Action pod1Action = aiSolver.getTurnAction(1);
-	//raceSimulator.manageTurnAction(pod1Action, 1);
-	//cout << pod1Action << endl;
+	const Action pod1Action = aiSolver.getTurnAction(1);
+	raceSimulator.manageTurnAction(pod1Action, 1);
+	pod1Action.output(raceSimulator.getPod(1).getPosition(), raceSimulator.getPod(1).getAngle());
 
-	if (0 == turnsCount) {
-		cout << "13284 5513 BOOST" << endl;
-	}
-	else {
-		cout << "13284 5513 100" << endl;
-	}
-
-	cout << "13284 5513 100" << endl;
+	//if (0 == turnsCount) {
+	//	cout << "13284 5513 BOOST" << endl;
+	//}
+	//else {
+	//	cout << "13284 5513 100" << endl;
+	//}
+	//
+	//cout << "13284 5513 100" << endl;
 }
 
 //*************************************************************************************************************
