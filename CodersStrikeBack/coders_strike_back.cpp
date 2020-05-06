@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -505,8 +505,10 @@ public:
 	void setVelocity(const Coords velocity) { this->velocity = velocity; }
 
 	Coords getPosition() const { return position; }
+	Coords getInitialTurnPosition() const { return initialTurnPosition; }
 	Coords getVelocity() const { return velocity; }
 	float getAngle() const { return angle; }
+	float getInitialTurnAngle() const { return initialTurnAngle; }
 	int getNextCheckopoint() const { return nextCheckopoint; }
 
 	/// Initialize the Pod with default parameters
@@ -1568,8 +1570,6 @@ void AiSolver::solve() {
 //*************************************************************************************************************
 
 void AiSolver::greedySearch(vector<vector<Action>> actionsToTry, const int depth) {
-	vector<vector<Action>> newActionsToTry = actionsToTry;
-
 	if (depth && 0 == (depth % PODS_COUNT)) {
 		raceSimulator.simulate(actionsToTry);
 		const float simEvaluation = raceSimulator.evaluate();
@@ -1578,8 +1578,6 @@ void AiSolver::greedySearch(vector<vector<Action>> actionsToTry, const int depth
 			turnActions[0] = actionsToTry[0][0];
 			turnActions[1] = actionsToTry[0][1];
 		}
-		
-		newActionsToTry.push_back({});
 	}
 
 	if (MAX_DEPTH == depth) {
@@ -1588,7 +1586,14 @@ void AiSolver::greedySearch(vector<vector<Action>> actionsToTry, const int depth
 
 	for (int thrustIdx = 0; thrustIdx < THRUSTS_TO_TRY_COUNT; ++thrustIdx) {
 		for (int angleIdx = 0; angleIdx < ANGLES_TO_TRY_COUNT; ++angleIdx) {
-			newActionsToTry.end()->push_back({ ANGLES_TO_TRY[angleIdx], THRUSTS_TO_TRY[thrustIdx] });
+			vector<vector<Action>> newActionsToTry = actionsToTry;
+
+			if (depth && 0 == (depth % PODS_COUNT)) {
+				newActionsToTry.push_back({});
+			}
+
+			Action action{ ANGLES_TO_TRY[angleIdx], THRUSTS_TO_TRY[thrustIdx] };
+			newActionsToTry[newActionsToTry.size() - 1].push_back(action);
 			greedySearch(newActionsToTry, 1 + depth);
 		}
 	}
@@ -1768,11 +1773,11 @@ void Game::turnBegin() {
 void Game::makeTurn() {
 	const Action pod0Action = aiSolver.getTurnAction(0);
 	raceSimulator.manageTurnAction(pod0Action, 0);
-	pod0Action.output(raceSimulator.getPod(0).getPosition(), raceSimulator.getPod(0).getAngle());
+	pod0Action.output(raceSimulator.getPod(0).getInitialTurnPosition(), raceSimulator.getPod(0).getInitialTurnAngle());
 
 	const Action pod1Action = aiSolver.getTurnAction(1);
 	raceSimulator.manageTurnAction(pod1Action, 1);
-	pod1Action.output(raceSimulator.getPod(1).getPosition(), raceSimulator.getPod(1).getAngle());
+	pod1Action.output(raceSimulator.getPod(1).getInitialTurnPosition(), raceSimulator.getPod(1).getInitialTurnAngle());
 
 	//if (0 == turnsCount) {
 	//	cout << "13284 5513 BOOST" << endl;
