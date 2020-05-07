@@ -92,8 +92,6 @@ static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 // Algorithms
 static constexpr int MAX_DEPTH = 4;
 
-const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
-
 static constexpr int THRUSTS_TO_TRY_COUNT = 2;
 static const int THRUSTS_TO_TRY[THRUSTS_TO_TRY_COUNT] = {
 	0,
