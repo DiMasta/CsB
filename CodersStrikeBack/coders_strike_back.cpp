@@ -22,7 +22,7 @@
 using namespace std;
 
 #define SVG
-//#define REDIRECT_INPUT
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -114,11 +114,13 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 };
 
 /// GA consts
-static constexpr int CHROMOSOME_SIZE = 50;
+static constexpr int CHROMOSOME_SIZE = 30; // Must be divisible by 3
 static constexpr int POPULATION_SIZE = 5;
 static constexpr int MAX_POPULATION = 150;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
+
+static constexpr int CHROMOSOME_HALF_SIZE = CHROMOSOME_SIZE / PAIR;
 
 /// GA flags
 static const unsigned int COPIED_FLAG = 1 << 0;
@@ -138,6 +140,8 @@ enum class Team {
 static float randomFloatBetween0and1() {
 	return static_cast<float>(rand()) / FLOAT_MAX_RAND;
 }
+
+class Chromosome;
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -244,6 +248,12 @@ public:
 	void setTarget(const Coords traget) { this->target = target; }
 	Coords getTarget() const { return target; }
 
+	/// Based on the given genes, construct the action
+	/// @param[in] gene0 the gene value to consider
+	/// @param[in] gene1 the gene value to consider
+	/// @param[in] gene2 the gene value to consider
+	void parseGenes(const float gene0, const float gene1, const float gene2);
+
 	/// Update the bits for the angle index
 	/// @param[in] angleIdx the angle index
 	void setAngleIdx(const int angleIdx);
@@ -308,6 +318,37 @@ Action::Action(const Coords target, const string& thrustStr) :
 	}
 	else {
 		setThrust(stoi(thrustStr));
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::parseGenes(const float gene0, const float gene1, const float gene2) {
+	// TODO FIX angle
+
+	if (gene0 > 0.95f) {
+		setFlag(SHIELD_FLAG);
+	}
+
+	if (gene1 < 0.25f) {
+		setAngleIdx(0); // -18
+	}
+	else if (gene1 > 0.75f) {
+		setAngleIdx(36); // 18
+	}
+	else {
+		setAngleIdx(-18 + 36 * ((gene1 - 0.25f) * 2.0f));
+	}
+
+	if (gene2 < 0.25f) {
+		setThrust(0);
+	}
+	else if (gene2 > 0.75f) {
+		setThrust(100);
+	}
+	else {
+		setThrust(100 * ((gene2 - 0.25f) * 2.0f));
 	}
 }
 
@@ -1068,6 +1109,98 @@ bool operator==(const Pod& lhs, const Pod& rhs) {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+class Chromosome {
+public:
+	Chromosome();
+
+	void setEvaluation(const float evaluation) { this->evaluation = evaluation; }
+	void setGene(const int geneIdx, const float geneValue) { genes[geneIdx] = geneValue; }
+	void setFlags(const unsigned int flags) { this->flags = flags; }
+	void setFlag(const unsigned int flag) { flags |= flag; }
+
+	float getEvaluation() const { return evaluation; }
+	float getGene(const int geneIdx)const { return genes[geneIdx]; }
+	unsigned int getFlags() const { return flags; }
+	bool hasFlag(const unsigned int flag) const { return flag & flags; }
+
+	/// Initalize the chromosome with random genes
+	void initRandom();
+
+	/// Mutate the Chromosome using CGA technique
+	void mutate();
+
+	/// Reset for simulation
+	void reset();
+
+#ifdef SVG
+	/// Generate the visual debug data
+	std::string constructSVGData() const;
+#endif // SVG
+
+private:
+	/// Chromosome's genes
+	/// First half of the genes represent actions for the pod[0] of the team
+	/// Second half of the genes represent actions for the pod[1] of the team
+	float genes[CHROMOSOME_SIZE];
+
+	float evaluation; ///< The evaluation value for this genes, set by race simulator
+	unsigned int flags; /// Stored chromosome properties
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Chromosome::Chromosome() :
+	evaluation{},
+	flags{}
+{}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Chromosome::initRandom() {
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
+		genes[geneIdx] = randomFloatBetween0and1();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Chromosome::mutate() {
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
+		const float r = randomFloatBetween0and1();
+
+		if (r < PROBABILITY_OF_MUTATION) {
+			// Not sure if this is the best mutation
+			// Use the logic from the initRandomPopulation
+			// May the restrictions from the previous turn could be taken in account
+			genes[geneIdx] = randomFloatBetween0and1();
+		}
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Chromosome::reset() {
+	flags = 0;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+#ifdef SVG
+std::string Chromosome::constructSVGData() const {
+	return std::string();
+}
+#endif // SVG
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 /// Represents the whole race, holds information for the track, the pods, simulate pods and performs minimax
 class RaceSimulator {
 public:
@@ -1106,13 +1239,13 @@ public:
 	);
 
 	/// Simulate the given array of actions, one by one for each turn
-	/// @param[in] actions the action for each turn to simulate
-	/// @param[in] firstTurn true if the simulation is for the first turn
-	void simulate(const vector<vector<Action>>& turnActions, const bool firstTurn = false);
+	/// @param[in] actionsToSimulate actions to test
+	/// @param[in] enemyActions conditional other player actions
+	void simulate(const Chromosome& actionsToSimulate, Chromosome* enemyActions);
 
 	/// Simulate pods for the given actions
 	/// @param podsActiona commands for all pods
-	void simulatePods(const vector<Action>& podsActions);
+	void simulatePods(Action(&podsActions)[PODS_COUNT]);
 
 	/// Move all pods at once, considering their parameters
 	void movePods();
@@ -1216,17 +1349,47 @@ void RaceSimulator::fillPodData(
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void RaceSimulator::simulate(const vector<vector<Action>>& turnActions, const bool firstTurn) {
+void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* enemyActions) {
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].reset();
-
-		if (firstTurn) {
-			pods[podActionIdx].setFlag(FIRST_TURN_FLAG);
-		}
 	}
 	
-	for (size_t actionIdx = 0; actionIdx < turnActions.size(); ++actionIdx) {
-		simulatePods(turnActions[actionIdx]);
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_HALF_SIZE; ++geneIdx) {
+		Action podsActions[PODS_COUNT];
+
+		const float g00 = actionsToSimulate.getGene(geneIdx);
+		const float g01 = actionsToSimulate.getGene(geneIdx + 1);
+		const float g02 = actionsToSimulate.getGene(geneIdx + 2);
+
+		const float g10 = actionsToSimulate.getGene(CHROMOSOME_HALF_SIZE + geneIdx);
+		const float g11 = actionsToSimulate.getGene(CHROMOSOME_HALF_SIZE + geneIdx + 1);
+		const float g12 = actionsToSimulate.getGene(CHROMOSOME_HALF_SIZE + geneIdx + 2);
+
+		if (enemyActions) {
+			podsActions[0].parseGenes(g00, g01, g02);
+			podsActions[1].parseGenes(g10, g11, g12);
+
+			const float e00 = enemyActions->getGene(geneIdx);
+			const float e01 = enemyActions->getGene(geneIdx + 1);
+			const float e02 = enemyActions->getGene(geneIdx + 2);
+
+			const float e10 = enemyActions->getGene(geneIdx);
+			const float e11 = enemyActions->getGene(geneIdx + 1);
+			const float e12 = enemyActions->getGene(geneIdx + 2);
+
+
+			podsActions[2].parseGenes(e00, e01, e02);
+			podsActions[3].parseGenes(e10, e11, e12);
+		}
+		else {
+			// When simulating the enemy, consider my pods still
+			podsActions[0].setThrust(0);
+			podsActions[1].setThrust(0);
+			podsActions[2].parseGenes(g00, g01, g02);
+			podsActions[3].parseGenes(g10, g11, g12);
+		}
+
+		simulatePods(podsActions);
 
 #ifdef TESTS
 		cout << endl << actionIdx << endl;
@@ -1243,7 +1406,7 @@ void RaceSimulator::simulate(const vector<vector<Action>>& turnActions, const bo
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void RaceSimulator::simulatePods(const vector<Action>& podsActions) {
+void RaceSimulator::simulatePods(Action (&podsActions)[PODS_COUNT]) {
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].applyAction(podsActions[podActionIdx]);
 	}
@@ -1547,112 +1710,13 @@ bool RaceSimulator::teamLost(const Team team) {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
-class Chromosome {
-public:
-	Chromosome();
-
-	void setEvaluation(const float evaluation) { this->evaluation = evaluation; }
-	void setGene(const int geneIdx, const float geneValue) { genes[geneIdx] = geneValue; }
-	void setFlags(const unsigned int flags) { this->flags = flags; }
-	void setFlag(const unsigned int flag) { flags |= flag; }
-
-	float getEvaluation() const { return evaluation; }
-	float getGene(const int geneIdx)const { return genes[geneIdx]; }
-	unsigned int getFlags() const { return flags; }
-	bool hasFlag(const unsigned int flag) const { return flag & flags; }
-
-	/// Initalize the chromosome with random genes
-	void initRandom();
-
-	/// Grade the chromose
-	/// @return the calculated evaluation
-	float evaluate();
-
-	/// Mutate the Chromosome using CGA technique
-	void mutate();
-
-	/// Reset for simulation
-	void reset();
-
-#ifdef SVG
-	/// Generate the visual debug data
-	std::string constructSVGData() const;
-#endif // SVG
-
-private:
-	/// Chromosome's genes
-	float genes[CHROMOSOME_SIZE];
-
-	float evaluation; ///< The evaluation value for this genes
-	unsigned int flags; /// Stored chromosome properties
-};
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Chromosome::Chromosome() :
-	evaluation{},
-	flags{}
-{}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Chromosome::initRandom() {
-	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
-		genes[geneIdx] = randomFloatBetween0and1();
-	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-float Chromosome::evaluate() {
-	return 0.0f;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Chromosome::mutate() {
-	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
-		const float r = randomFloatBetween0and1();
-
-		if (r < PROBABILITY_OF_MUTATION) {
-			// Not sure if this is the best mutation
-			// Use the logic from the initRandomPopulation
-			// May the restrictions from the previous turn could be taken in account
-			genes[geneIdx] = randomFloatBetween0and1();
-		}
-	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Chromosome::reset() {
-	flags = 0;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-#ifdef SVG
-std::string Chromosome::constructSVGData() const {
-	return std::string();
-}
-#endif // SVG
-
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-
 /// Performs genetic algorithm first on the enemy pods (while my pods are not moving) to predict enemy moves
 /// Then run GA on my pods based on the nemy best moves
 class GA {
 public:
 	GA(RaceSimulator& raceSimulator);
+
+	Action getTurnAction(const int actionIdx) const { return turnActions[actionIdx]; }
 
 	/// Perform the genetic algorithm
 	void run();
@@ -1665,6 +1729,10 @@ private:
 
 	/// Init random population
 	void init();
+
+	/// Simulate the GA data for the given team
+	/// @param[in] team the team which will be simulated
+	void simulate(const Team team);
 
 	/// Evaluate all chromosomes
 	void evaluate();
@@ -1698,6 +1766,9 @@ private:
 	void makeChildren();
 
 	/// Reset stats for each induvidual to the default values
+	void resetPopulation();
+
+	/// Reset the whole algortihm
 	void reset();
 
 	/// Plain copy chromosome: TODO: may be optimized
@@ -1725,8 +1796,11 @@ private:
 	float evaluationsSum; ///< Sum of all chromosome evaluations, needed for faster roullete wheel
 	int populationIdx; ///< The index of the current population
 
+	float bestEvaluation; ///< Best evaluation for a chromosome so far
+	int bestChromosomeIdx; ///< The best chromosome index
+
 	/// Game specific members
-	Action enemyActions[CHROMOSOME_SIZE]; ///< Best actions for the enemy
+	Chromosome enemyActions; ///< Best actions for the enemy
 	Action turnActions[TEAM_PODS_COUNT]; ///< Turn action for pods
 	RaceSimulator& raceSimulator; ///< Pods controller
 
@@ -1743,6 +1817,7 @@ private:
 GA::GA(RaceSimulator& raceSimulator) :
 	raceSimulator{ raceSimulator }
 {
+	reset();
 }
 
 //*************************************************************************************************************
@@ -1759,18 +1834,21 @@ void GA::run() {
 void GA::runForTeam(const Team team) {
 	init();
 
+	// MAX_POPULATION must be adjusted for the given time
+	// There is no single guaranteed solution, evolve while you can
 	while (populationIdx < MAX_POPULATION) {
+		simulate(team);
+
 #ifdef SVG
 		constructSVGData();
 #endif // SVG
 
-		evaluate();
 		prepareForRoulleteWheel();
 
 		makeChildren();
 		elitism();
 
-		reset();
+		resetPopulation();
 		++populationIdx;
 	}
 
@@ -1789,9 +1867,28 @@ void GA::init() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void GA::evaluate() {
+void GA::simulate(const Team team) {
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
-		evaluationsSum += population[chromIdx].evaluate();
+		if (Team::MY == team) {
+			raceSimulator.simulate(population[chromIdx], &enemyActions);
+		}
+		else {
+			raceSimulator.simulate(population[chromIdx], nullptr);
+		}
+
+		const float chromEvaluation = raceSimulator.evaluate();
+
+		if (chromEvaluation > bestEvaluation) {
+			bestEvaluation = chromEvaluation;
+			bestChromosomeIdx = chromIdx;
+		}
+
+		evaluationsSum += chromEvaluation;
+		population[chromIdx].setEvaluation(chromEvaluation);
+
+#ifdef SVG
+		//raceSimulator.getPodSVGPaths()
+#endif // SVG
 	}
 }
 
@@ -1924,7 +2021,7 @@ void GA::constructSVGData() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void GA::reset() {
+void GA::resetPopulation() {
 	evaluationsSum = 0.f;
 	chromEvalIdxPairs.clear();
 
@@ -1950,6 +2047,19 @@ void GA::reset() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void GA::reset() {
+	bestEvaluation = MINUS_INFINITY;
+	bestChromosomeIdx = INVALID_IDX;
+	populationIdx = 0;
+	chromEvalIdxPairs.clear();
+
+	population = populationA;
+	newPopulation = populationB;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 	const Chromosome& sourceChromosome = population[sourceIdx];
 	Chromosome& destinationChromosome = newPopulation[destIdx];
@@ -1968,85 +2078,9 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 //*************************************************************************************************************
 
 void GA::end() {
+#ifdef SVG
 	svgManager.fileDone();
-}
-
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-
-class AiSolver {
-public:
-	AiSolver(RaceSimulator& raceSimulator);
-
-	Action getTurnAction(const int actionIdx) const { return turnActions[actionIdx]; }
-
-	/// Decide the best action for the current state of the pods in raceSimulator
-	void solve();
-
-	/// Try several actions for pods and choose the best one
-	/// @param[in] actionsToTry the to simulate
-	/// @param[in] depth the depth of the search
-	void greedySearch(vector<vector<Action>> actionsToTry, const int depth);
-
-private:
-	GA ga; ///< The genetic algorithm manager
-
-	Action turnActions[TEAM_PODS_COUNT]; ///< Turn action for pods
-	RaceSimulator& raceSimulator; ///< Pods controller
-	float bestEvaluation; ///< Biggest evaluation from simulations
-};
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-AiSolver::AiSolver(RaceSimulator& raceSimulator) :
-	ga{ raceSimulator },
-	raceSimulator{ raceSimulator },
-	bestEvaluation{ MINUS_INFINITY }
-{
-
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void AiSolver::solve() {
-	vector<Action> emptyActions;
-	vector<vector<Action>> actionsToTry{ emptyActions };
-	greedySearch(actionsToTry, 0);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void AiSolver::greedySearch(vector<vector<Action>> actionsToTry, const int depth) {
-	if (MAX_DEPTH == depth) {
-		raceSimulator.simulate(actionsToTry);
-		const float simEvaluation = raceSimulator.evaluate();
-		if (simEvaluation > bestEvaluation) {
-			bestEvaluation = simEvaluation;
-			turnActions[0] = actionsToTry[0][0];
-			turnActions[1] = actionsToTry[0][1];
-		}
-
-		return;
-	}
-
-	for (int thrustIdx = 0; thrustIdx < THRUSTS_TO_TRY_COUNT; ++thrustIdx) {
-		for (int angleIdx = 0; angleIdx < ANGLES_TO_TRY_COUNT; ++angleIdx) {
-			vector<vector<Action>> newActionsToTry = actionsToTry;
-
-			if (depth && 0 == (depth % PODS_COUNT)) {
-				newActionsToTry.push_back({});
-			}
-
-			Action action{ ANGLES_TO_TRY[angleIdx], THRUSTS_TO_TRY[thrustIdx] };
-			newActionsToTry[newActionsToTry.size() - 1].push_back(action);
-			greedySearch(newActionsToTry, 1 + depth);
-		}
-	}
+#endif // SVG
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -2075,7 +2109,7 @@ public:
 private:
 	// Game specific members
 	RaceSimulator raceSimulator; ///< Whole race manager
-	AiSolver aiSolver;
+	GA ga; ///< The genetic algorithm manager
 
 	int turnsCount;
 	int stopGame;
@@ -2085,7 +2119,7 @@ private:
 //*************************************************************************************************************
 
 Game::Game() :
-	aiSolver{ raceSimulator },
+	ga{ raceSimulator },
 	turnsCount{ 0 },
 	stopGame{ false }
 {
@@ -2214,18 +2248,18 @@ void Game::getTurnInput() {
 
 void Game::turnBegin() {
 	raceSimulator.setPodsRoles();
-	aiSolver.solve();
+	ga.run();
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	const Action pod0Action = aiSolver.getTurnAction(0);
+	const Action pod0Action = ga.getTurnAction(0);
 	raceSimulator.manageTurnAction(pod0Action, 0);
 	pod0Action.output(raceSimulator.getPod(0).getInitialTurnPosition(), raceSimulator.getPod(0).getInitialTurnAngle());
 
-	const Action pod1Action = aiSolver.getTurnAction(1);
+	const Action pod1Action = ga.getTurnAction(1);
 	raceSimulator.manageTurnAction(pod1Action, 1);
 	pod1Action.output(raceSimulator.getPod(1).getInitialTurnPosition(), raceSimulator.getPod(1).getInitialTurnAngle());
 
