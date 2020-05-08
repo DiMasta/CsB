@@ -21,6 +21,7 @@
 
 using namespace std;
 
+#define SVG
 //#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
@@ -28,6 +29,12 @@ using namespace std;
 //#define USE_UNIFORM_RANDOM
 //#define TESTS
 #define M_PI 3.14159265358979323846
+
+#ifdef SVG
+#include "svg_manager.h"
+#endif // SVG
+
+using ChromEvalIdxMap = std::map<float, int>;
 
 //static const string INPUT_FILE_NAME = "input.txt";
 static const string INPUT_FILE_NAME = "input_classic_track.txt";
@@ -83,13 +90,13 @@ static constexpr float MASS_WITHOUT_SHEILD = 1.f;
 static constexpr float MINUS_INFINITY = numeric_limits<float>::min();
 static constexpr float PLUS_INFINITY = numeric_limits<float>::max();
 
-// Weights
+/// Weights
 static constexpr float PASSED_CPS_WEIGHT		= 50'000.f;
 static constexpr float SCORE_DIFF_WEIGHT		= 50.f;
 static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
 static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 
-// Algorithms
+/// Algorithms
 static constexpr int MAX_DEPTH = 4;
 
 static constexpr int THRUSTS_TO_TRY_COUNT = 2;
@@ -105,6 +112,13 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 	18,	// 0
 	36	// 18
 };
+
+/// GA consts
+static constexpr int CHROMOSOME_SIZE = 50;
+static constexpr int POPULATION_SIZE = 5;
+static constexpr int MAX_POPULATION = 150;
+static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
+static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
 enum class CollisionType {
 	INVALID = -1,
@@ -1526,6 +1540,165 @@ bool RaceSimulator::teamLost(const Team team) {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+class Chromosome {
+public:
+	Chromosome();
+
+	void setEvaluation(const float evaluation);
+	void setGene(const int geneIdx, const float geneCoord);
+	void setFlags(const unsigned int flags);
+	void setFlag(const unsigned int flag);
+
+	float getEvaluation() const;
+	float getGene(const int geneIdx)const;
+	unsigned int getFlags() const;
+	bool hasFlag(const unsigned int flag) const;
+
+	/// Initalize the chromosome with random genes
+	void initRandom();
+
+	/// Grade the chromose
+	/// @return the calculated evaluation
+	float evaluate();
+
+	/// Mutate the Chromosome using CGA technique
+	void mutate();
+
+	/// Reset for simulation
+	void reset();
+
+#ifdef SVG
+	/// Generate the visual debug data
+	std::string constructSVGData() const;
+#endif // SVG
+
+private:
+	/// Chromosome's genes
+	float genes[CHROMOSOME_SIZE];
+
+	float evaluation; ///< The evaluation value for this genes
+	unsigned int flags; /// Stored chromosome properties
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+/// Performs genetic algorithm first on the enemy pods (while my pods are not moving) to predict enemy moves
+/// Then run GA on my pods based on the nemy best moves
+class GA {
+public:
+	GA(RaceSimulator& raceSimulator);
+
+	/// Perform the genetic algorithm
+	void run();
+
+private:
+	/// Run GA for the given team
+	/// Enemy: Optimise actions for the enemy team, assuming my pods are still
+	/// My: Optimise actions for my team, based on the best actions chosen for the enemy
+	void runForTeam(const Team team);
+
+	/// Init random population
+	void init();
+
+	/// Evaluate all chromosomes
+	void evaluate();
+
+	/// Prepare the population for the roullete wheel selection:
+	///		- calc the sum of evaluations
+	///		- normalize the evalutions
+	///		- sort the population's chromosome based on the cumulative sum
+	///		- calc the cumulative sum
+	void prepareForRoulleteWheel();
+
+	/// Select parents' indecies, for crossover, using the roullete wheel technique
+	/// @param[out] parent0Idx the first parent's index, which will be used for the crossover
+	/// @param[out] parent1Idx the second parent's index, which will be used for the crossover
+	void selectParentsIdxs(int& parent0Idx, int& parent1Idx);
+
+	/// Crossover pair of chromosomes to make new pair and add them to the new children
+	/// @param[in] parent0Idx the first parent's index, which will be used for the crossover
+	/// @param[in] parent1Idx the second parent's index, which will be used for the crossover
+	/// @param[in] childrenCount how many children are already created
+	void crossover(int parent0Idx, int parent1Idx, int childrenCount);
+
+	/// Mutate the last two chromosomes in the children array, they are the new from the crossover
+	/// @param[in] childrenCount how many children are already created
+	void mutate(int childrenCount);
+
+	/// Get the best chromosomes from the current population and pass them unchanged to the next
+	void elitism();
+
+	/// Use the Continuos Genetic Algorithm methods to make the children for the new generation
+	void makeChildren();
+
+	/// Construct the visual data for the current population
+	void constructSVGData();
+
+	/// Reset stats for each induvidual to the default values
+	void reset();
+
+	/// Plain copy chromosome: TODO: may be optimized
+	/// @param[in] destIdx the chromosome in the new population
+	/// @param[in] sourceIdx the chromosome in the old population
+	void copyChromosomeToNewPopulation(int destIdx, int sourceIdx);
+
+	/// Conclude the population
+	void end();
+
+	/// Will change the content in A when B is active and vise versa
+	Chromosome populationA[POPULATION_SIZE];
+	Chromosome populationB[POPULATION_SIZE];
+
+	/// Holds chromosomes' evaluations as keys and chromosomes' indecies as values
+	/// using map to hold this information, because every time a key is inserted it is stored in place (sorted)
+	/// the map is represented as tree and every time an element is inserted I think is faster and sorting whole array of chromosomes
+	/// TODO: measure the speed and if needed implement own hash map, no easy way to reserve map elements in advance,
+	/// but I think map of floats and ints shouldn't be the bottle neck of the program
+	ChromEvalIdxMap chromEvalIdxPairs;
+
+	SVGManager svgManager; ///< The svg manager for debug
+	Chromosome* population; ///< Points to active population
+	Chromosome* newPopulation; ///< Points to newly created population
+
+	float evaluationsSum; ///< Sum of all chromosome evaluations, needed for faster roullete wheel
+	int populationIdx; ///< The index of the current population
+
+	/// Game specific members
+	Action enemyActions[CHROMOSOME_SIZE]; ///< Best actions for the enemy
+	Action turnActions[TEAM_PODS_COUNT]; ///< Turn action for pods
+	RaceSimulator& raceSimulator; ///< Pods controller
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+GA::GA(RaceSimulator& raceSimulator) :
+	raceSimulator{ raceSimulator }
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::run() {
+	runForTeam(Team::ENEMY);
+	runForTeam(Team::MY);
+}
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::runForTeam(const Team team) {
+
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 class AiSolver {
 public:
 	AiSolver(RaceSimulator& raceSimulator);
@@ -1541,6 +1714,8 @@ public:
 	void greedySearch(vector<vector<Action>> actionsToTry, const int depth);
 
 private:
+	GA ga; ///< The genetic algorithm manager
+
 	Action turnActions[TEAM_PODS_COUNT]; ///< Turn action for pods
 	RaceSimulator& raceSimulator; ///< Pods controller
 	float bestEvaluation; ///< Biggest evaluation from simulations
@@ -1550,8 +1725,9 @@ private:
 //*************************************************************************************************************
 
 AiSolver::AiSolver(RaceSimulator& raceSimulator) :
-	raceSimulator(raceSimulator),
-	bestEvaluation(MINUS_INFINITY)
+	ga{ raceSimulator },
+	raceSimulator{ raceSimulator },
+	bestEvaluation{ MINUS_INFINITY }
 {
 
 }
