@@ -26,7 +26,6 @@ using namespace std;
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
-//#define USE_UNIFORM_RANDOM
 //#define TESTS
 #define M_PI 3.14159265358979323846
 
@@ -89,6 +88,7 @@ static constexpr float MASS_WITH_SHEILD = 10.f;
 static constexpr float MASS_WITHOUT_SHEILD = 1.f;
 static constexpr float MINUS_INFINITY = numeric_limits<float>::min();
 static constexpr float PLUS_INFINITY = numeric_limits<float>::max();
+static constexpr float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
 /// Weights
 static constexpr float PASSED_CPS_WEIGHT		= 50'000.f;
@@ -120,6 +120,9 @@ static constexpr int MAX_POPULATION = 150;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
+/// GA flags
+static const unsigned int COPIED_FLAG = 1 << 0;
+
 enum class CollisionType {
 	INVALID = -1,
 	WITH_POD,
@@ -131,6 +134,10 @@ enum class Team {
 	MY,
 	ENEMY,
 };
+
+static float randomFloatBetween0and1() {
+	return static_cast<float>(rand()) / FLOAT_MAX_RAND;
+}
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -1544,15 +1551,15 @@ class Chromosome {
 public:
 	Chromosome();
 
-	void setEvaluation(const float evaluation);
-	void setGene(const int geneIdx, const float geneCoord);
-	void setFlags(const unsigned int flags);
-	void setFlag(const unsigned int flag);
+	void setEvaluation(const float evaluation) { this->evaluation = evaluation; }
+	void setGene(const int geneIdx, const float geneValue) { genes[geneIdx] = geneValue; }
+	void setFlags(const unsigned int flags) { this->flags = flags; }
+	void setFlag(const unsigned int flag) { flags |= flag; }
 
-	float getEvaluation() const;
-	float getGene(const int geneIdx)const;
-	unsigned int getFlags() const;
-	bool hasFlag(const unsigned int flag) const;
+	float getEvaluation() const { return evaluation; }
+	float getGene(const int geneIdx)const { return genes[geneIdx]; }
+	unsigned int getFlags() const { return flags; }
+	bool hasFlag(const unsigned int flag) const { return flag & flags; }
 
 	/// Initalize the chromosome with random genes
 	void initRandom();
@@ -1579,6 +1586,62 @@ private:
 	float evaluation; ///< The evaluation value for this genes
 	unsigned int flags; /// Stored chromosome properties
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Chromosome::Chromosome() :
+	evaluation{},
+	flags{}
+{}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Chromosome::initRandom() {
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
+		genes[geneIdx] = randomFloatBetween0and1();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+float Chromosome::evaluate() {
+	return 0.0f;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Chromosome::mutate() {
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
+		const float r = randomFloatBetween0and1();
+
+		if (r < PROBABILITY_OF_MUTATION) {
+			// Not sure if this is the best mutation
+			// Use the logic from the initRandomPopulation
+			// May the restrictions from the previous turn could be taken in account
+			genes[geneIdx] = randomFloatBetween0and1();
+		}
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Chromosome::reset() {
+	flags = 0;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+#ifdef SVG
+std::string Chromosome::constructSVGData() const {
+	return std::string();
+}
+#endif // SVG
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -1634,9 +1697,6 @@ private:
 	/// Use the Continuos Genetic Algorithm methods to make the children for the new generation
 	void makeChildren();
 
-	/// Construct the visual data for the current population
-	void constructSVGData();
-
 	/// Reset stats for each induvidual to the default values
 	void reset();
 
@@ -1659,7 +1719,6 @@ private:
 	/// but I think map of floats and ints shouldn't be the bottle neck of the program
 	ChromEvalIdxMap chromEvalIdxPairs;
 
-	SVGManager svgManager; ///< The svg manager for debug
 	Chromosome* population; ///< Points to active population
 	Chromosome* newPopulation; ///< Points to newly created population
 
@@ -1670,6 +1729,12 @@ private:
 	Action enemyActions[CHROMOSOME_SIZE]; ///< Best actions for the enemy
 	Action turnActions[TEAM_PODS_COUNT]; ///< Turn action for pods
 	RaceSimulator& raceSimulator; ///< Pods controller
+
+#ifdef SVG
+	/// Construct the visual data for the current population
+	void constructSVGData();
+	SVGManager svgManager; ///< The svg manager for debug
+#endif // SVG
 };
 
 //*************************************************************************************************************
@@ -1687,11 +1752,223 @@ void GA::run() {
 	runForTeam(Team::ENEMY);
 	runForTeam(Team::MY);
 }
+
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void GA::runForTeam(const Team team) {
+	init();
 
+	while (populationIdx < MAX_POPULATION) {
+#ifdef SVG
+		constructSVGData();
+#endif // SVG
+
+		evaluate();
+		prepareForRoulleteWheel();
+
+		makeChildren();
+		elitism();
+
+		reset();
+		++populationIdx;
+	}
+
+	end();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::init() {
+	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
+		population[chromIdx].initRandom();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::evaluate() {
+	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
+		evaluationsSum += population[chromIdx].evaluate();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::prepareForRoulleteWheel() {
+	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
+		Chromosome& chromosome = population[chromIdx];
+		const float normalizedEvaluation = chromosome.getEvaluation() / evaluationsSum; // normalize the evalutions
+		chromosome.setEvaluation(normalizedEvaluation);
+
+		chromEvalIdxPairs[normalizedEvaluation] = chromIdx; // Is it good think to use floats as keys
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::selectParentsIdxs(int& parent0Idx, int& parent1Idx) {
+	float r = randomFloatBetween0and1();
+
+	float cumulativeSum = 0.f;
+	parent0Idx = chromEvalIdxPairs.rbegin()->second; // If r is too big the loop will break before setting the parentIdx
+	for (ChromEvalIdxMap::const_iterator it = chromEvalIdxPairs.begin(); it != chromEvalIdxPairs.end(); ++it) {
+		cumulativeSum += it->first;
+		parent0Idx = it->second;
+
+		if (r < cumulativeSum) {
+			break;
+		}
+	}
+
+	parent1Idx = parent0Idx;
+	while (parent1Idx == parent0Idx) {
+		r = randomFloatBetween0and1();
+
+		cumulativeSum = 0.f;
+		parent1Idx = chromEvalIdxPairs.rbegin()->second; // If r is too big the loop will break before setting the parentIdx
+		// Code duplication, at the moment I cannot think of more elegant layout
+		for (ChromEvalIdxMap::const_iterator it = chromEvalIdxPairs.begin(); it != chromEvalIdxPairs.end(); ++it) {
+			cumulativeSum += it->first;
+			parent1Idx = it->second;
+
+			if (r < cumulativeSum) {
+				break;
+			}
+		}
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::crossover(int parent0Idx, int parent1Idx, int childrenCount) {
+	const Chromosome& parent0 = population[parent0Idx];
+	const Chromosome& parent1 = population[parent1Idx];
+
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
+		float parent0Gene = parent0.getGene(geneIdx);
+		float parent1Gene = parent1.getGene(geneIdx);
+
+		const float beta = randomFloatBetween0and1();
+
+		const float child0Gene = (beta * parent0Gene) + ((1.f - beta) * parent1Gene);
+		const float child1Gene = ((1.f - beta) * parent0Gene) + (beta * parent1Gene);
+
+		newPopulation[childrenCount].setGene(geneIdx, child0Gene);
+		newPopulation[childrenCount + 1].setGene(geneIdx, child1Gene);
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::mutate(int childrenCount) {
+	// Last two chromosomes are made during the crossover
+	newPopulation[childrenCount].mutate();
+	newPopulation[childrenCount + 1].mutate();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::elitism() {
+	const int elitsCount = static_cast<int>(POPULATION_SIZE * ELITISM_RATIO);
+
+	// Use the map, which holds sorted evaluations as keys
+	ChromEvalIdxMap::const_reverse_iterator it = chromEvalIdxPairs.rbegin();
+	for (int elitIdx = 0; elitIdx < elitsCount; ++elitIdx) {
+		const int chromosomeIdx = it->second;
+
+		copyChromosomeToNewPopulation(elitIdx, chromosomeIdx);
+		++it;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::makeChildren() {
+	// While the new population is not completly filled
+	// select a pair of parents
+	// crossover those parents using the Continuos Genetic Algorithm technique
+	// mutate them using the Continuos Genetic Algorithm technique
+	for (int childrenCount = 0; childrenCount < POPULATION_SIZE; childrenCount += 2) {
+		int parent0Idx = INVALID_ID; // For safety reasons
+		int parent1Idx = INVALID_ID; // For safety reasons
+
+		selectParentsIdxs(parent0Idx, parent1Idx);
+
+		crossover(parent0Idx, parent1Idx, childrenCount);
+		mutate(childrenCount);
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::constructSVGData() {
+	std::string populationStr = svgManager.constructGId(populationIdx);
+	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
+		populationStr.append(population[chromIdx].constructSVGData());
+	}
+	populationStr.append(CLOSE_GROUP);
+
+	svgManager.filePrintStr(populationStr);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::reset() {
+	evaluationsSum = 0.f;
+	chromEvalIdxPairs.clear();
+
+	// If copied directly from previous population do not reset
+	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
+		Chromosome& chromosome = newPopulation[chromIdx];
+		if (!chromosome.hasFlag(COPIED_FLAG)) {
+			chromosome.reset();
+		}
+	}
+
+	// Switch population arrays
+	if (0 == (populationIdx % 2)) {
+		population = populationB;
+		newPopulation = populationA;
+	}
+	else {
+		population = populationA;
+		newPopulation = populationB;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
+	const Chromosome& sourceChromosome = population[sourceIdx];
+	Chromosome& destinationChromosome = newPopulation[destIdx];
+
+	destinationChromosome.setEvaluation(sourceChromosome.getEvaluation());
+	destinationChromosome.setFlags(sourceChromosome.getFlags());
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
+		destinationChromosome.setGene(geneIdx, sourceChromosome.getGene(geneIdx));
+	}
+
+	// Set at the end of copying to not be overwritten
+	destinationChromosome.setFlag(COPIED_FLAG);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::end() {
+	svgManager.fileDone();
 }
 
 //-------------------------------------------------------------------------------------------------------------
