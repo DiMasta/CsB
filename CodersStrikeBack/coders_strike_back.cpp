@@ -1282,8 +1282,9 @@ public:
 	void manageTurnAction(const Action turnAction, const int podIdx);
 
 	/// Evaluate the current state of the pods
+	/// @param[in] team the team to consider first person when evaluating
 	/// @return the evaluation for the pods
-	float evaluate();
+	float evaluate(const Team team);
 
 private:
 	/// Check if the given team have won
@@ -1398,7 +1399,6 @@ void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* en
 		simulatePods(podsActions);
 
 #ifdef TESTS
-		cout << endl << actionIdx << endl;
 		for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 			pods[podActionIdx].debug(track);
 			cout << endl;
@@ -1652,24 +1652,37 @@ void RaceSimulator::manageTurnAction(const Action turnAction, const int podIdx) 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-float RaceSimulator::evaluate() {
+float RaceSimulator::evaluate(const Team team) {
 	float evaluation = 0.f;
 
-	if (teamWon(Team::ENEMY) || teamLost(Team::MY)) {
+	Team firstPersonTeam = Team::MY;
+	Team opponentTeam = Team::ENEMY;
+	if (Team::ENEMY == team) {
+		firstPersonTeam = Team::ENEMY;
+		opponentTeam = Team::MY;
+	}
+
+	if (teamWon(opponentTeam) || teamLost(firstPersonTeam)) {
 		evaluation = MINUS_INFINITY;
 	}
-	else if (teamLost(Team::ENEMY) || teamWon(Team::MY)) {
+	else if (teamLost(opponentTeam) || teamWon(firstPersonTeam)) {
 		evaluation = PLUS_INFINITY;
 	}
 	else {
-		const Pod& myRunner = getPod(Team::MY, RUNNER_FLAG);
-		const Pod& myHunter = getPod(Team::MY, HUNTER_FLAG);
-		const Pod& enemyRunner = getPod(Team::ENEMY, RUNNER_FLAG);
-		const Pod& enemyHUnter = getPod(Team::ENEMY, HUNTER_FLAG);
+		const Pod& myRunner = getPod(firstPersonTeam, RUNNER_FLAG);
+		const Pod& myHunter = getPod(firstPersonTeam, HUNTER_FLAG);
+		const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
+		const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
 
-		evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
-		evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
-		evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
+		if (Team::MY == team) {
+			evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
+			evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
+			evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
+		}
+		else {
+			evaluation += myRunner.score(track);
+			evaluation += myHunter.score(track);
+		}
 	}
 
 	return evaluation;
@@ -1741,7 +1754,8 @@ private:
 	void simulate(const Team team);
 
 	/// Evaluate all chromosomes
-	void evaluate();
+	/// @param[in] team the team which will be simulated
+	void evaluate(const Team team);
 
 	/// Prepare the population for the roullete wheel selection:
 	///		- calc the sum of evaluations
@@ -1882,7 +1896,7 @@ void GA::simulate(const Team team) {
 			raceSimulator.simulate(population[chromIdx], nullptr);
 		}
 
-		const float chromEvaluation = raceSimulator.evaluate();
+		const float chromEvaluation = raceSimulator.evaluate(team);
 
 		if (chromEvaluation > bestEvaluation) {
 			bestEvaluation = chromEvaluation;
@@ -2014,6 +2028,7 @@ void GA::makeChildren() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+#ifdef SVG
 void GA::constructSVGData() {
 	std::string populationStr = svgManager.constructGId(populationIdx);
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
@@ -2023,6 +2038,7 @@ void GA::constructSVGData() {
 
 	svgManager.filePrintStr(populationStr);
 }
+#endif // SVG
 
 //*************************************************************************************************************
 //*************************************************************************************************************
