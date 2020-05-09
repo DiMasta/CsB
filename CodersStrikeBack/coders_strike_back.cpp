@@ -68,6 +68,8 @@ static constexpr int INITIAL_CHECKPOINTS_PASSED = 1;
 static constexpr int INITIAL_NEXT_CHECKPOINT_TURNS_LEFT = 100;
 static constexpr int SHEILD_TURNS = 3;
 static constexpr int RACE_LAPS = 3;
+static constexpr int MIN_THRUST = 0;
+static constexpr int MAX_THRUST = 100;
 static constexpr int BOOST_THRUST = 650;
 
 static constexpr unsigned int THRUST_MASK		= 0b0000'0000'0000'0000'0000'0000'1111'1111;
@@ -80,7 +82,8 @@ static constexpr unsigned int SHIELD_FLAG		= 0b0000'0000'0000'0000'0100'0000'000
 static constexpr unsigned int BOOST_FLAG		= 0b0000'0000'0000'0000'1000'0000'0000'0000;
 static constexpr unsigned int FIRST_TURN_FLAG	= 0b0000'0000'0000'0001'0000'0000'0000'0000;
 
-static constexpr float MAX_ANGLE_PER_TURN = 18.f;
+static constexpr float MIN_ANGLE = -18.f;
+static constexpr float MAX_ANGLE = 18.f;
 static constexpr float TURN_START_TIME = 0.f;
 static constexpr float TURN_END_TIME = 1.f;
 static constexpr float FRICTION = .85f;
@@ -247,8 +250,10 @@ public:
 	Action(const int angleIdx, const int thrust);
 	Action(const Coords target, const string& thrustStr);
 
+	void setAngle(const float angle) { this->angle = angle; }
 	void setTarget(const Coords traget) { this->target = target; }
 	Coords getTarget() const { return target; }
+	float getAngle() const { return angle; }
 
 	/// Based on the given genes, construct the action
 	/// @param[in] gene0 the gene value to consider
@@ -284,6 +289,7 @@ public:
 
 private:
 	Coords target; ///< Target point for the pod
+	float angle; ///< Turn angle in the range [-18.f; 18.f]
 	unsigned int flags; ///< Thrust(in the first 8 bits) and flags for shield and boost
 };
 
@@ -291,7 +297,8 @@ private:
 //*************************************************************************************************************
 
 Action::Action() :
-	flags{ 0 }
+	angle{},
+	flags{}
 {
 }
 
@@ -327,30 +334,28 @@ Action::Action(const Coords target, const string& thrustStr) :
 //*************************************************************************************************************
 
 void Action::parseGenes(const float gene0, const float gene1, const float gene2) {
-	// TODO FIX angle
-
 	if (gene0 > 0.95f) {
 		setFlag(SHIELD_FLAG);
 	}
 
 	if (gene1 < 0.25f) {
-		setAngleIdx(0); // -18
+		setAngle(MIN_ANGLE);
 	}
 	else if (gene1 > 0.75f) {
-		setAngleIdx(36); // 18
+		setAngle(MAX_ANGLE);
 	}
 	else {
-		setAngleIdx(-18 + 36 * ((gene1 - 0.25f) * 2.0f));
+		setAngle(MIN_ANGLE + MAX_ANGLE * ((gene1 - 0.25f) * 2.f));
 	}
 
 	if (gene2 < 0.25f) {
-		setThrust(0);
+		setThrust(MIN_THRUST);
 	}
 	else if (gene2 > 0.75f) {
-		setThrust(100);
+		setThrust(MIN_THRUST);
 	}
 	else {
-		setThrust(100 * ((gene2 - 0.25f) * 2.0f));
+		setThrust(static_cast<int>(MIN_THRUST * ((gene2 - 0.25f) * 2.f)));
 	}
 }
 
@@ -792,11 +797,11 @@ void Pod::rotate(const Coords target) {
 void Pod::rotate(float rotAngle) {
 	if (!hasFlag(FIRST_TURN_FLAG)) {
 		// Can't turn by more than 18 in one turn
-		if (rotAngle > MAX_ANGLE_PER_TURN) {
-			rotAngle = MAX_ANGLE_PER_TURN;
+		if (rotAngle > MAX_ANGLE) {
+			rotAngle = MAX_ANGLE;
 		}
-		else if (rotAngle < -MAX_ANGLE_PER_TURN) {
-			rotAngle = -MAX_ANGLE_PER_TURN;
+		else if (rotAngle < MAX_ANGLE) {
+			rotAngle = MAX_ANGLE;
 		}
 	}
 	else {
@@ -896,7 +901,7 @@ void Pod::applyAction(Action action) {
 #ifdef TESTS
 	rotate(action.getTarget());
 #else
-	rotate(ALL_ANGLES[action.getAngleIdx()]);
+	rotate(action.getAngle());
 #endif // TESTS
 
 	if (action.hasFlag(SHIELD_FLAG)) {
@@ -1378,7 +1383,6 @@ void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* en
 			const float e10 = enemyActions->getGene(geneIdx);
 			const float e11 = enemyActions->getGene(geneIdx + 1);
 			const float e12 = enemyActions->getGene(geneIdx + 2);
-
 
 			podsActions[2].parseGenes(e00, e01, e02);
 			podsActions[3].parseGenes(e10, e11, e12);
