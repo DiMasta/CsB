@@ -51,6 +51,7 @@ static constexpr int ZERO_CHAR = '0';
 static constexpr int DIRECTIONS_COUNT = 8;
 static constexpr int BYTE_SIZE = 8;
 static constexpr int PAIR = 2;
+static constexpr int TRIPLET = 3;
 static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
@@ -114,7 +115,8 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 };
 
 /// GA consts
-static constexpr int CHROMOSOME_SIZE = 30; // Must be divisible by 3
+static constexpr int TURNS_TO_SIMULATE = 1;
+static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 5;
 static constexpr int MAX_POPULATION = 150;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
@@ -1354,7 +1356,7 @@ void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* en
 		pods[podActionIdx].reset();
 	}
 	
-	for (int geneIdx = 0; geneIdx < CHROMOSOME_HALF_SIZE; ++geneIdx) {
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_HALF_SIZE; geneIdx += TRIPLET) {
 		Action podsActions[PODS_COUNT];
 
 		const float g00 = actionsToSimulate.getGene(geneIdx);
