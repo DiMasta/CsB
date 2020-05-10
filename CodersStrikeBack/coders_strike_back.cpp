@@ -118,10 +118,10 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 };
 
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 1;
+static constexpr int TURNS_TO_SIMULATE = 64;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
-static constexpr int POPULATION_SIZE = 5;
-static constexpr int MAX_POPULATION = 150;
+static constexpr int POPULATION_SIZE = 64;
+static constexpr int MAX_POPULATION = 1;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
@@ -168,6 +168,8 @@ struct Coords {
 		x{ x },
 		y{ y }
 	{}
+
+	pair<float, float> toPair() const { return { x, y }; }
 
 	/// Calculate the square of the distance to the given point
 	/// @param[in] point the point to which to calculate distance
@@ -352,10 +354,10 @@ void Action::parseGenes(const float gene0, const float gene1, const float gene2)
 		setThrust(MIN_THRUST);
 	}
 	else if (gene2 > 0.75f) {
-		setThrust(MIN_THRUST);
+		setThrust(MAX_THRUST);
 	}
 	else {
-		setThrust(static_cast<int>(MIN_THRUST * ((gene2 - 0.25f) * 2.f)));
+		setThrust(static_cast<int>(MAX_THRUST * ((gene2 - 0.25f) * 2.f)));
 	}
 }
 
@@ -1249,11 +1251,13 @@ public:
 	/// Simulate the given array of actions, one by one for each turn
 	/// @param[in] actionsToSimulate actions to test
 	/// @param[in] enemyActions conditional other player actions
-	void simulate(const Chromosome& actionsToSimulate, Chromosome* enemyActions);
+	/// @param[in] team the team which is being simulated
+	void simulate(const Chromosome& actionsToSimulate, Chromosome* enemyActions, const Team team);
 
 	/// Simulate pods for the given actions
-	/// @param podsActiona commands for all pods
-	void simulatePods(Action(&podsActions)[PODS_COUNT]);
+	/// @param[in] podsActiona commands for all pods
+	/// @param[in] team the team which is being simulated
+	void simulatePods(Action(&podsActions)[PODS_COUNT], const Team team);
 
 	/// Move all pods at once, considering their parameters
 	void movePods();
@@ -1286,6 +1290,10 @@ public:
 	/// @param[in] team the team to consider first person when evaluating
 	/// @return the evaluation for the pods
 	float evaluate(const Team team);
+
+#ifdef SVG
+	vector<pair<float, float>> podsPaths[PODS_COUNT]; ///< Path for each pod
+#endif // SVG
 
 private:
 	/// Check if the given team have won
@@ -1358,9 +1366,18 @@ void RaceSimulator::fillPodData(
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* enemyActions) {
+void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* enemyActions, const Team team) {
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].reset();
+#ifdef SVG
+		// Draw initial pods positions
+		// My pods are still when simulating the enemy
+		if (Team::ENEMY == team && podActionIdx < TEAM_PODS_COUNT) {
+			continue;
+		}
+
+		podsPaths[podActionIdx].push_back(pods[podActionIdx].getPosition().toPair());
+#endif // SVG
 	}
 	
 	for (int geneIdx = 0; geneIdx < CHROMOSOME_HALF_SIZE; geneIdx += TRIPLET) {
@@ -1397,23 +1414,14 @@ void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* en
 			podsActions[3].parseGenes(g10, g11, g12);
 		}
 
-		simulatePods(podsActions);
-
-#ifdef TESTS
-		for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
-			pods[podActionIdx].debug(track);
-			cout << endl;
-		}
-
-		cout << "Evaluation: " << evaluate() << endl;
-#endif // TESTS
+		simulatePods(podsActions, team);
 	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void RaceSimulator::simulatePods(Action (&podsActions)[PODS_COUNT]) {
+void RaceSimulator::simulatePods(Action (&podsActions)[PODS_COUNT], const Team team) {
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].applyAction(podsActions[podActionIdx]);
 	}
@@ -1423,6 +1431,15 @@ void RaceSimulator::simulatePods(Action (&podsActions)[PODS_COUNT]) {
 
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].turnEnd();
+
+#ifdef SVG
+		// My pods are still when simulating the enemy
+		if (Team::ENEMY == team && podActionIdx < TEAM_PODS_COUNT) {
+			continue;
+		}
+
+		podsPaths[podActionIdx].push_back(pods[podActionIdx].getPosition().toPair());
+#endif // SVG
 	}
 }
 
@@ -1824,8 +1841,6 @@ private:
 	RaceSimulator& raceSimulator; ///< Pods controller
 
 #ifdef SVG
-	/// Construct the visual data for the current population
-	void constructSVGData();
 	SVGManager svgManager; ///< The svg manager for debug
 #endif // SVG
 };
@@ -1874,7 +1889,7 @@ void GA::run() {
 	}
 #endif // SVG
 
-	//runForTeam(Team::ENEMY);
+	runForTeam(Team::ENEMY);
 	//runForTeam(Team::MY);
 }
 
@@ -1888,15 +1903,9 @@ void GA::runForTeam(const Team team) {
 	// There is no single guaranteed solution, evolve while you can
 	while (populationIdx < MAX_POPULATION) {
 		simulate(team);
-
-#ifdef SVG
-		constructSVGData();
-#endif // SVG
-
-		prepareForRoulleteWheel();
-
-		makeChildren();
-		elitism();
+		//prepareForRoulleteWheel();
+		//makeChildren();
+		//elitism();
 
 		resetPopulation();
 		++populationIdx;
@@ -1916,12 +1925,16 @@ void GA::init() {
 //*************************************************************************************************************
 
 void GA::simulate(const Team team) {
+#ifdef SVG
+	svgManager.filePrintStr(svgManager.constructGId(populationIdx));
+#endif // SVG
+
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
 		if (Team::MY == team) {
-			raceSimulator.simulate(population[chromIdx], &enemyActions);
+			raceSimulator.simulate(population[chromIdx], &enemyActions, team);
 		}
 		else {
-			raceSimulator.simulate(population[chromIdx], nullptr);
+			raceSimulator.simulate(population[chromIdx], nullptr, team);
 		}
 
 		const float chromEvaluation = raceSimulator.evaluate(team);
@@ -1935,9 +1948,17 @@ void GA::simulate(const Team team) {
 		population[chromIdx].setEvaluation(chromEvaluation);
 
 #ifdef SVG
-		//raceSimulator.getPodSVGPaths()
+		svgManager.constructPaths(raceSimulator.podsPaths, populationIdx, Team::ENEMY == team);
+		raceSimulator.podsPaths[0].clear();
+		raceSimulator.podsPaths[1].clear();
+		raceSimulator.podsPaths[2].clear();
+		raceSimulator.podsPaths[3].clear();
 #endif // SVG
 	}
+
+#ifdef SVG
+	svgManager.filePrintStr(CLOSE_GROUP);
+#endif // SVG
 }
 
 //*************************************************************************************************************
@@ -2052,21 +2073,6 @@ void GA::makeChildren() {
 		mutate(childrenCount);
 	}
 }
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-#ifdef SVG
-void GA::constructSVGData() {
-	//std::string populationStr = svgManager.constructGId(populationIdx);
-	//for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
-	//	populationStr.append(population[chromIdx].constructSVGData());
-	//}
-	//populationStr.append(CLOSE_GROUP);
-	//
-	//svgManager.filePrintStr(populationStr);
-}
-#endif // SVG
 
 //*************************************************************************************************************
 //*************************************************************************************************************

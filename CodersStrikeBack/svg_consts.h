@@ -3,6 +3,8 @@
 #include <string>
 
 static const std::string SVG_HTML_FILE_NAME = "coders_strike_back.html";
+static const std::string COMMA_SEPARATOR = ",";
+static const std::string SPACE_SEPARATOR = " ";
 static const std::string OPEN_GROUP = "<g>";
 static const std::string CLOSE_GROUP = R"(</g>
 )";
@@ -17,6 +19,11 @@ static const std::string TEXT_BEGIN = R"(<text x = ")";
 static const std::string TEXT_MIDDLE = R"(" y = ")";
 static const std::string TEXT_STYLE = R"(" style = "font-family:sans-serif;font-size:256px;fill:black">)";
 static const std::string TEXT_END = R"(</text>
+)";
+static const std::string POLYLINE_BEGIN = R"(<polyline points = ")";
+static const std::string POLYLINE_MY_TEAM_END = R"( " style = "fill:none;stroke:rgb(0,255,0);stroke-width:10" />
+)";
+static const std::string POLYLINE_ENEMY_TEAM_END = R"( " style = "fill:none;stroke:rgb(0,0,255);stroke-width:10" />
 )";
 
 static const std::string FILE_START = R"(
