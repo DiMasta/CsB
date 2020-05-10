@@ -13,14 +13,17 @@ static const std::string CIRCLE_BEGIN = R"(<circle cx=")";
 static const std::string CIRCLE_MIDDLE = R"(" cy=")";
 static const std::string CIRCLE_END = R"(" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
 )";
-
-//<circle cx = "270" cy = "720" r = "6" style = "fill:red;stroke-width:1" / >
+static const std::string TEXT_BEGIN = R"(<text x = ")";
+static const std::string TEXT_MIDDLE = R"(" y = ")";
+static const std::string TEXT_STYLE = R"(" style = "font-family:sans-serif;font-size:256px;fill:black">)";
+static const std::string TEXT_END = R"(</text>
+)";
 
 static const std::string FILE_START = R"(
 <? xml version = "1.0" encoding = "UTF-8"?>
 <svg xmlns = "http://www.w3.org/2000/svg" version = "1.1" width = "16000" height = "9000" fill = "rgb(206, 224, 230) " style = "background-color:brown" >
 
-<text id = "populationText" x = "10" y = "128" style = "font-family:sans-serif;font-size:128px;fill:black">Population Id</text>
+<text id = "populationText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Population Id</text>
 )";
 
 static const std::string FILE_END = R"(

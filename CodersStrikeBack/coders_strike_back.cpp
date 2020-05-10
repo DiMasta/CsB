@@ -1861,8 +1861,16 @@ void GA::run() {
 		circleStr += CIRCLE_MIDDLE;
 		circleStr += to_string(cpCoords.y);
 		circleStr += CIRCLE_END;
-
 		svgManager.filePrintStr(circleStr);
+
+		string cpIdStr = TEXT_BEGIN;
+		cpIdStr += to_string(cpCoords.x - 80.f);
+		cpIdStr += TEXT_MIDDLE;
+		cpIdStr += to_string(cpCoords.y + 80.f);
+		cpIdStr += TEXT_STYLE;
+		cpIdStr += to_string(cpIdx);
+		cpIdStr += TEXT_END;
+		svgManager.filePrintStr(cpIdStr);
 	}
 #endif // SVG
 
