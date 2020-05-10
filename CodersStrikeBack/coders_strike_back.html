@@ -1,32 +1,18 @@
-#pragma once
 
-#include <string>
-
-static const std::string SVG_HTML_FILE_NAME = "coders_strike_back.html";
-static const std::string OPEN_GROUP = "<g>";
-static const std::string CLOSE_GROUP = R"(</g>
-)";
-static const std::string ID_BEGIN = R"(<g id="turn)";
-static const std::string ID_END = R"(" style = "display:none;fill:green;">
-)";
-static const std::string CIRCLE_BEGIN = R"(<circle cx=")";
-static const std::string CIRCLE_MIDDLE = R"(" cy=")";
-static const std::string CIRCLE_END = R"(" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
-)";
-
-//<circle cx = "270" cy = "720" r = "6" style = "fill:red;stroke-width:1" / >
-
-static const std::string FILE_START = R"(
 <? xml version = "1.0" encoding = "UTF-8"?>
 <svg xmlns = "http://www.w3.org/2000/svg" version = "1.1" width = "16000" height = "9000" fill = "rgb(206, 224, 230) " style = "background-color:brown" >
-
+<g id="yourtarget">
 <text id = "populationText" x = "10" y = "128" style = "font-family:sans-serif;font-size:128px;fill:black">Population Id</text>
-)";
-
-static const std::string FILE_END = R"(
+<circle cx="7982.000000" cy="7873.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+<circle cx="13284.000000" cy="5513.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+<circle cx="9539.000000" cy="1380.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+<circle cx="3637.000000" cy="4405.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+</g>
 </svg>
 
 <script>
+
+document.getElementById(yourtarget).setAttribute("transform", "scale(2.0)");
 
 var turn = 0;
 var turnStr = "turn";
@@ -108,4 +94,3 @@ window.onkeydown = function(e) {
 }
 
 </script>
-)";

@@ -25,7 +25,7 @@ using namespace std;
 #define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
-//#define DEBUG_ONE_TURN
+#define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
 
@@ -1215,6 +1215,7 @@ public:
 	RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track);
 
 	const Pod& getPod(const int podIdx) const { return pods[podIdx]; };
+	const Track getTrack() const { return track; }
 	
 	/// Return the pod from the team, with the flag
 	/// @param[in] team the team to check
@@ -1734,6 +1735,7 @@ bool RaceSimulator::teamLost(const Team team) {
 class GA {
 public:
 	GA(RaceSimulator& raceSimulator);
+	~GA();
 
 	Action getTurnAction(const int actionIdx) const { return turnActions[actionIdx]; }
 
@@ -1796,9 +1798,6 @@ private:
 	/// @param[in] sourceIdx the chromosome in the old population
 	void copyChromosomeToNewPopulation(int destIdx, int sourceIdx);
 
-	/// Conclude the population
-	void end();
-
 	/// Will change the content in A when B is active and vise versa
 	Chromosome populationA[POPULATION_SIZE];
 	Chromosome populationB[POPULATION_SIZE];
@@ -1843,9 +1842,32 @@ GA::GA(RaceSimulator& raceSimulator) :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+GA::~GA() {
+#ifdef SVG
+	svgManager.fileDone();
+#endif // SVG
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void GA::run() {
-	runForTeam(Team::ENEMY);
-	runForTeam(Team::MY);
+#ifdef SVG
+	const Track& track = raceSimulator.getTrack();
+	for (int cpIdx = 0; cpIdx < track.getCheckpointsCount(); ++cpIdx) {
+		Coords cpCoords = track.getCheckpoint(cpIdx);
+		string circleStr = CIRCLE_BEGIN;
+		circleStr += to_string(cpCoords.x);
+		circleStr += CIRCLE_MIDDLE;
+		circleStr += to_string(cpCoords.y);
+		circleStr += CIRCLE_END;
+
+		svgManager.filePrintStr(circleStr);
+	}
+#endif // SVG
+
+	//runForTeam(Team::ENEMY);
+	//runForTeam(Team::MY);
 }
 
 //*************************************************************************************************************
@@ -1871,8 +1893,6 @@ void GA::runForTeam(const Team team) {
 		resetPopulation();
 		++populationIdx;
 	}
-
-	end();
 }
 
 //*************************************************************************************************************
@@ -2030,13 +2050,13 @@ void GA::makeChildren() {
 
 #ifdef SVG
 void GA::constructSVGData() {
-	std::string populationStr = svgManager.constructGId(populationIdx);
-	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
-		populationStr.append(population[chromIdx].constructSVGData());
-	}
-	populationStr.append(CLOSE_GROUP);
-
-	svgManager.filePrintStr(populationStr);
+	//std::string populationStr = svgManager.constructGId(populationIdx);
+	//for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
+	//	populationStr.append(population[chromIdx].constructSVGData());
+	//}
+	//populationStr.append(CLOSE_GROUP);
+	//
+	//svgManager.filePrintStr(populationStr);
 }
 #endif // SVG
 
@@ -2094,15 +2114,6 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 
 	// Set at the end of copying to not be overwritten
 	destinationChromosome.setFlag(COPIED_FLAG);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void GA::end() {
-#ifdef SVG
-	svgManager.fileDone();
-#endif // SVG
 }
 
 //-------------------------------------------------------------------------------------------------------------
