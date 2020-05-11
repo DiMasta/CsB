@@ -77,7 +77,7 @@ void SVGManager::constructPaths(const vector<pair<float, float>> (&podsPaths)[4]
 				polyLines += SPACE_SEPARATOR;
 			}
 
-			if (!enemySimulation) {
+			if (2 == podIdx) {
 				polyLines += POLYLINE_MY_TEAM_END;
 			}
 			else {

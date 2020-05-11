@@ -90,8 +90,6 @@ static constexpr float FRICTION = .85f;
 static constexpr float HALF_MOMENTUM = 120.f;
 static constexpr float MASS_WITH_SHEILD = 10.f;
 static constexpr float MASS_WITHOUT_SHEILD = 1.f;
-static constexpr float MINUS_INFINITY = numeric_limits<float>::min();
-static constexpr float PLUS_INFINITY = numeric_limits<float>::max();
 static constexpr float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
 /// Weights
@@ -118,14 +116,18 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 };
 
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 64;
+static constexpr int TURNS_TO_SIMULATE = 8;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
-static constexpr int POPULATION_SIZE = 64;
-static constexpr int MAX_POPULATION = 2;
+static constexpr int POPULATION_SIZE = 16;
+static constexpr int MAX_POPULATION = 32;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
 static constexpr int CHROMOSOME_HALF_SIZE = CHROMOSOME_SIZE / PAIR;
+static constexpr float BIAS = 50.f;
+static constexpr float FLOAT_MAX = numeric_limits<float>::max();
+static constexpr float PLUS_INFINITY = (FLOAT_MAX / POPULATION_SIZE) - BIAS;
+static constexpr float MINUS_INFINITY = -PLUS_INFINITY;
 
 /// GA flags
 static const unsigned int COPIED_FLAG = 1 << 0;
@@ -750,6 +752,7 @@ void Pod::reset() {
 	angle = initialTurnAngle;
 	nextCheckopoint = initialTurnNextCheckopoint;
 	sheildTurnsLeft = initialSheildTurnsLeft;
+	passedCheckpoints = initialTurnPassedCheckpoints;
 	turnsLeft = initialTurnTurnsLeft;
 	flags = initialTurnFlags;
 }
@@ -925,6 +928,7 @@ void Pod::applyAction(Action action) {
 //*************************************************************************************************************
 
 void Pod::nextCPReached(const int chekpointsCountOnTrack) {
+	turnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
 	++passedCheckpoints;
 	nextCheckopoint = passedCheckpoints % chekpointsCountOnTrack;
 }
@@ -1141,10 +1145,9 @@ public:
 	/// Reset for simulation
 	void reset();
 
-#ifdef SVG
-	/// Generate the visual debug data
-	std::string constructSVGData() const;
-#endif // SVG
+	/// Copy the given chromosome into this
+	/// @param[in] source the source chromosome
+	void copy(const Chromosome& source);
 
 private:
 	/// Chromosome's genes
@@ -1199,11 +1202,11 @@ void Chromosome::reset() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-#ifdef SVG
-std::string Chromosome::constructSVGData() const {
-	return std::string();
+void Chromosome::copy(const Chromosome& source) {
+	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
+		genes[geneIdx] = source.genes[geneIdx];
+	}
 }
-#endif // SVG
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -1815,6 +1818,9 @@ private:
 	/// @param[in] sourceIdx the chromosome in the old population
 	void copyChromosomeToNewPopulation(int destIdx, int sourceIdx);
 
+	/// Switch form ENEMY simulation to MY team simulation, using the best result from ENEMY simulation
+	void switchTeamsForSimulation();
+
 	/// Will change the content in A when B is active and vise versa
 	Chromosome populationA[POPULATION_SIZE];
 	Chromosome populationB[POPULATION_SIZE];
@@ -1890,7 +1896,8 @@ void GA::run() {
 #endif // SVG
 
 	runForTeam(Team::ENEMY);
-	//runForTeam(Team::MY);
+	switchTeamsForSimulation();
+	runForTeam(Team::MY);
 }
 
 //*************************************************************************************************************
@@ -1959,6 +1966,10 @@ void GA::simulate(const Team team) {
 #ifdef SVG
 	svgManager.filePrintStr(CLOSE_GROUP);
 #endif // SVG
+
+	if (Team::ENEMY == team) {
+		enemyActions.copy(population[bestChromosomeIdx]);
+	}
 }
 
 //*************************************************************************************************************
@@ -2128,6 +2139,14 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 
 	// Set at the end of copying to not be overwritten
 	destinationChromosome.setFlag(COPIED_FLAG);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::switchTeamsForSimulation() {
+	// Change max populations
+	// Change population size
 }
 
 //-------------------------------------------------------------------------------------------------------------
