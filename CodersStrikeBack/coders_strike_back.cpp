@@ -121,7 +121,7 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 static constexpr int TURNS_TO_SIMULATE = 64;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 64;
-static constexpr int MAX_POPULATION = 1;
+static constexpr int MAX_POPULATION = 2;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
@@ -802,8 +802,8 @@ void Pod::rotate(float rotAngle) {
 		if (rotAngle > MAX_ANGLE) {
 			rotAngle = MAX_ANGLE;
 		}
-		else if (rotAngle < MAX_ANGLE) {
-			rotAngle = MAX_ANGLE;
+		else if (rotAngle < MIN_ANGLE) {
+			rotAngle = MIN_ANGLE;
 		}
 	}
 	else {
@@ -1903,9 +1903,9 @@ void GA::runForTeam(const Team team) {
 	// There is no single guaranteed solution, evolve while you can
 	while (populationIdx < MAX_POPULATION) {
 		simulate(team);
-		//prepareForRoulleteWheel();
-		//makeChildren();
-		//elitism();
+		prepareForRoulleteWheel();
+		makeChildren();
+		elitism();
 
 		resetPopulation();
 		++populationIdx;
