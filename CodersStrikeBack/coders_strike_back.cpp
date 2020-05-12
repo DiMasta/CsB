@@ -21,11 +21,11 @@
 
 using namespace std;
 
-//#define SVG
+#define SVG
 #define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
-#define DEBUG_ONE_TURN
+//#define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
 
@@ -1697,15 +1697,15 @@ float RaceSimulator::evaluate(const Team team) {
 		const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
 		const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
 
-		if (Team::MY == team) {
-			evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
-			evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
-			evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
-		}
-		else {
+		//if (Team::MY == team) {
+		//	evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
+		//	evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
+		//	evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
+		//}
+		//else {
 			evaluation += myRunner.score(track);
 			evaluation += myHunter.score(track);
-		}
+		//}
 	}
 
 	return evaluation;
@@ -1823,7 +1823,8 @@ private:
 	void copyChromosomeToNewPopulation(int destIdx, int sourceIdx);
 
 	/// Switch form ENEMY simulation to MY team simulation, using the best result from ENEMY simulation
-	void switchTeamsForSimulation();
+	/// @param[in] simulationTeam the team which will be simulated
+	void switchTeamsForSimulation(const Team simulationTeam);
 
 	/// Get the first genes from thethe best chromosome from the last simulation
 	void chooseTurnActions();
@@ -1888,11 +1889,7 @@ void GA::run(const int turnIdx) {
 #ifdef TIME_MEASURERMENT
 	chrono::steady_clock::time_point enemyPodsEnd = chrono::steady_clock::now();
 	cerr << "Enemy simulation execution time: " << chrono::duration_cast<std::chrono::milliseconds>(enemyPodsEnd - enemyPodsBegin).count() << " [ms]" << std::endl;
-#endif // TIME_MEASURERMENT
 
-	switchTeamsForSimulation();
-
-#ifdef TIME_MEASURERMENT
 	chrono::steady_clock::time_point myPodsBegin = chrono::steady_clock::now();
 #endif // TIME_MEASURERMENT
 
@@ -1933,6 +1930,7 @@ void GA::runForTeam(const Team team, const int turnIdx) {
 	}
 #endif // SVG
 
+	switchTeamsForSimulation(team);
 	init();
 
 	// populationSize must be adjusted for the given time
@@ -2166,10 +2164,15 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void GA::switchTeamsForSimulation() {
-	enemyActions.copy(population[0]); // Last elitism stored the best chromosome in 0th position
+void GA::switchTeamsForSimulation(const Team simulationTeam) {
+	if (Team::MY == simulationTeam) {
+		enemyActions.copy(population[0]); // Last elitism stored the best chromosome in 0th position
+		populationSize = MY_MAX_POPULATION;
+	}
+	else {
+		populationSize = ENEMY_MAX_POPULATION;
+	}
 
-	populationSize = MY_MAX_POPULATION;
 	reset();
 }
 
@@ -2378,6 +2381,10 @@ void Game::makeTurn() {
 void Game::turnEnd() {
 	raceSimulator.turnEnd();
 
+	if (1 == turnsCount) {
+		stopGame = true;
+	}
+
 	++turnsCount;
 }
 
@@ -2385,6 +2392,7 @@ void Game::turnEnd() {
 //*************************************************************************************************************
 
 void Game::play() {
+	cerr << "Debug" << endl;
 	initGame();
 	getGameInput();
 	gameBegin();
