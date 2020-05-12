@@ -33,7 +33,8 @@ static const std::string FILE_START = R"(
 <? xml version = "1.0" encoding = "UTF-8"?>
 <svg xmlns = "http://www.w3.org/2000/svg" version = "1.1" width = "16000" height = "9000" fill = "rgb(206, 224, 230) " style = "background-color:brown" >
 
-<text id = "populationText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Population Id</text>
+<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn Id: TeamName Team Simulation</text>
+<text id = "populationText" x = "10" y = "512" style = "font-family:sans-serif;font-size:256px;fill:black">Population Id</text>
 )";
 
 static const std::string FILE_END = R"(
@@ -118,6 +119,22 @@ window.onkeydown = function(e) {
 	else if (106 == key) {
 		wholeSimulation(turn);
 	}
+	// Up arrow
+	else if (38 == key) {
+		changeTurnTest()
+	}
+	// Down arrow
+	else if (40 == key) {
+		changeTurn()
+	}
+}
+
+function changeTurn() {
+	window.location.assign("coders_strike_back_enemy_0.html")
+}
+
+function changeTurnTest() {
+	window.location.assign("coders_strike_back_my_____0.html")
 }
 
 </script>
