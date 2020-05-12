@@ -1683,10 +1683,10 @@ float RaceSimulator::evaluate(const Team team) {
 		opponentTeam = Team::MY;
 	}
 
-	if (teamWon(opponentTeam) || teamLost(firstPersonTeam)) {
+	if ((Team::ENEMY != team && teamWon(opponentTeam)) || teamLost(firstPersonTeam)) {
 		evaluation = MINUS_INFINITY;
 	}
-	else if (teamLost(opponentTeam) || teamWon(firstPersonTeam)) {
+	else if ((Team::ENEMY != team && teamLost(opponentTeam)) || teamWon(firstPersonTeam)) {
 		evaluation = PLUS_INFINITY;
 	}
 	else {
@@ -1760,13 +1760,15 @@ public:
 	Action getTurnAction(const int actionIdx) const { return turnActions[actionIdx]; }
 
 	/// Perform the genetic algorithm
-	void run();
+	/// @param[in] turnIdx the turn for which the simulation is run
+	void run(const int turnIdx);
 
 private:
 	/// Run GA for the given team
 	/// Enemy: Optimise actions for the enemy team, assuming my pods are still
 	/// My: Optimise actions for my team, based on the best actions chosen for the enemy
-	void runForTeam(const Team team);
+	/// @param[in] turnIdx the turn for which the simulation is run
+	void runForTeam(const Team team, const int turnIdx);
 
 	/// Init random population
 	void init();
@@ -1872,8 +1874,19 @@ GA::~GA() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void GA::run() {
+void GA::run(const int turnIdx) {
+	runForTeam(Team::ENEMY, turnIdx);
+	switchTeamsForSimulation();
+	runForTeam(Team::MY, turnIdx);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::runForTeam(const Team team, const int turnIdx) {
 #ifdef SVG
+	svgManager.fileInit(turnIdx, Team::ENEMY == team);
+
 	const Track& track = raceSimulator.getTrack();
 	for (int cpIdx = 0; cpIdx < track.getCheckpointsCount(); ++cpIdx) {
 		Coords cpCoords = track.getCheckpoint(cpIdx);
@@ -1895,15 +1908,6 @@ void GA::run() {
 	}
 #endif // SVG
 
-	runForTeam(Team::ENEMY);
-	switchTeamsForSimulation();
-	runForTeam(Team::MY);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void GA::runForTeam(const Team team) {
 	init();
 
 	// MAX_POPULATION must be adjusted for the given time
@@ -1917,6 +1921,11 @@ void GA::runForTeam(const Team team) {
 		resetPopulation();
 		++populationIdx;
 	}
+
+#ifdef SVG
+	svgManager.fileDone();
+	svgManager.fileClose();
+#endif // SVG
 }
 
 //*************************************************************************************************************
@@ -2314,7 +2323,7 @@ void Game::getTurnInput() {
 
 void Game::turnBegin() {
 	raceSimulator.setPodsRoles();
-	ga.run();
+	ga.run(turnsCount);
 }
 
 //*************************************************************************************************************

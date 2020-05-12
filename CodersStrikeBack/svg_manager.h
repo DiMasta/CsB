@@ -11,7 +11,7 @@ public:
 	SVGManager();
 	~SVGManager();
 
-	void fileInit();
+	void fileInit(const int turnIdx, const bool enemyTeam);
 	void fileDone();
 	void fileClose();
 	void filePrintStr(std::string strToPrint);

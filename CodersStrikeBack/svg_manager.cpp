@@ -5,21 +5,30 @@ using namespace std;
 SVGManager::SVGManager() :
 	svgHtmlFileStream()
 {
-	fileInit();
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 SVGManager::~SVGManager() {
-	fileClose();
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void SVGManager::fileInit() {
-	svgHtmlFileStream.open(SVG_HTML_FILE_NAME, ofstream::out | ofstream::trunc);
+void SVGManager::fileInit(const int turnIdx, const bool enemyTeam) {
+	string svgHtmlFileName = "";
+	if (enemyTeam) {
+		svgHtmlFileName = SVG_HTML_FILE_NAME_ENEMY_BEGIN;
+	}
+	else {
+		svgHtmlFileName = SVG_HTML_FILE_NAME_MY_BEGIN;
+	}
+
+	svgHtmlFileName += to_string(turnIdx);
+	svgHtmlFileName += SVG_HTML_FILE_NAME_END;
+
+	svgHtmlFileStream.open(svgHtmlFileName, ofstream::out | ofstream::trunc);
 	svgHtmlFileStream << FILE_START;
 }
 

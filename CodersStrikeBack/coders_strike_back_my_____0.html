@@ -1,42 +1,17 @@
-#pragma once
 
-#include <string>
-
-static const std::string SVG_HTML_FILE_NAME = "coders_strike_back.html";
-static const std::string SVG_HTML_FILE_NAME_ENEMY_BEGIN = "coders_strike_back_enemy_";
-static const std::string SVG_HTML_FILE_NAME_MY_BEGIN = "coders_strike_back_my_____";
-static const std::string SVG_HTML_FILE_NAME_END = ".html";
-static const std::string COMMA_SEPARATOR = ",";
-static const std::string SPACE_SEPARATOR = " ";
-static const std::string OPEN_GROUP = "<g>";
-static const std::string CLOSE_GROUP = R"(</g>
-)";
-static const std::string ID_BEGIN = R"(<g id="turn)";
-static const std::string ID_END = R"(" style = "display:none;fill:green;">
-)";
-static const std::string CIRCLE_BEGIN = R"(<circle cx=")";
-static const std::string CIRCLE_MIDDLE = R"(" cy=")";
-static const std::string CIRCLE_END = R"(" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
-)";
-static const std::string TEXT_BEGIN = R"(<text x = ")";
-static const std::string TEXT_MIDDLE = R"(" y = ")";
-static const std::string TEXT_STYLE = R"(" style = "font-family:sans-serif;font-size:256px;fill:black">)";
-static const std::string TEXT_END = R"(</text>
-)";
-static const std::string POLYLINE_BEGIN = R"(<polyline points = ")";
-static const std::string POLYLINE_MY_TEAM_END = R"( " style = "fill:none;stroke:rgb(0,255,0);stroke-width:10" />
-)";
-static const std::string POLYLINE_ENEMY_TEAM_END = R"( " style = "fill:none;stroke:rgb(0,0,255);stroke-width:10" />
-)";
-
-static const std::string FILE_START = R"(
 <? xml version = "1.0" encoding = "UTF-8"?>
 <svg xmlns = "http://www.w3.org/2000/svg" version = "1.1" width = "16000" height = "9000" fill = "rgb(206, 224, 230) " style = "background-color:brown" >
 
 <text id = "populationText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Population Id</text>
-)";
+<circle cx="7982.000000" cy="7873.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+<text x = "7902.000000" y = "7953.000000" style = "font-family:sans-serif;font-size:256px;fill:black">0</text>
+<circle cx="13284.000000" cy="5513.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+<text x = "13204.000000" y = "5593.000000" style = "font-family:sans-serif;font-size:256px;fill:black">1</text>
+<circle cx="9539.000000" cy="1380.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+<text x = "9459.000000" y = "1460.000000" style = "font-family:sans-serif;font-size:256px;fill:black">2</text>
+<circle cx="3637.000000" cy="4405.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
+<text x = "3557.000000" y = "4485.000000" style = "font-family:sans-serif;font-size:256px;fill:black">3</text>
 
-static const std::string FILE_END = R"(
 </svg>
 
 <script>
@@ -121,4 +96,3 @@ window.onkeydown = function(e) {
 }
 
 </script>
-)";
