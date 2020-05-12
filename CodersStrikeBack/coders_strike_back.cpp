@@ -21,10 +21,10 @@
 
 using namespace std;
 
-#define SVG
+//#define SVG
 #define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
-//#define TIME_MEASURERMENT
+#define TIME_MEASURERMENT
 #define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
@@ -119,7 +119,8 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 static constexpr int TURNS_TO_SIMULATE = 8;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
-static constexpr int MAX_POPULATION = 32;
+static constexpr int ENEMY_MAX_POPULATION = 32;
+static constexpr int MY_MAX_POPULATION = 32;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
@@ -1683,6 +1684,7 @@ float RaceSimulator::evaluate(const Team team) {
 		opponentTeam = Team::MY;
 	}
 
+	// When simulating enemy my pods are still
 	if ((Team::ENEMY != team && teamWon(opponentTeam)) || teamLost(firstPersonTeam)) {
 		evaluation = MINUS_INFINITY;
 	}
@@ -1823,6 +1825,9 @@ private:
 	/// Switch form ENEMY simulation to MY team simulation, using the best result from ENEMY simulation
 	void switchTeamsForSimulation();
 
+	/// Get the first genes from thethe best chromosome from the last simulation
+	void chooseTurnActions();
+
 	/// Will change the content in A when B is active and vise versa
 	Chromosome populationA[POPULATION_SIZE];
 	Chromosome populationB[POPULATION_SIZE];
@@ -1840,13 +1845,11 @@ private:
 	float evaluationsSum; ///< Sum of all chromosome evaluations, needed for faster roullete wheel
 	int populationIdx; ///< The index of the current population
 
-	float bestEvaluation; ///< Best evaluation for a chromosome so far
-	int bestChromosomeIdx; ///< The best chromosome index
-
 	/// Game specific members
 	Chromosome enemyActions; ///< Best actions for the enemy
 	Action turnActions[TEAM_PODS_COUNT]; ///< Turn action for pods
 	RaceSimulator& raceSimulator; ///< Pods controller
+	int populationSize; ///< How many population simulations to perform
 
 #ifdef SVG
 	SVGManager svgManager; ///< The svg manager for debug
@@ -1857,7 +1860,8 @@ private:
 //*************************************************************************************************************
 
 GA::GA(RaceSimulator& raceSimulator) :
-	raceSimulator{ raceSimulator }
+	raceSimulator{ raceSimulator },
+	populationSize{ ENEMY_MAX_POPULATION }
 {
 	reset();
 }
@@ -1875,9 +1879,30 @@ GA::~GA() {
 //*************************************************************************************************************
 
 void GA::run(const int turnIdx) {
+#ifdef TIME_MEASURERMENT
+	chrono::steady_clock::time_point enemyPodsBegin = chrono::steady_clock::now();
+#endif // TIME_MEASURERMENT
+
 	runForTeam(Team::ENEMY, turnIdx);
+
+#ifdef TIME_MEASURERMENT
+	chrono::steady_clock::time_point enemyPodsEnd = chrono::steady_clock::now();
+	cerr << "Enemy simulation execution time: " << chrono::duration_cast<std::chrono::milliseconds>(enemyPodsEnd - enemyPodsBegin).count() << " [ms]" << std::endl;
+#endif // TIME_MEASURERMENT
+
 	switchTeamsForSimulation();
+
+#ifdef TIME_MEASURERMENT
+	chrono::steady_clock::time_point myPodsBegin = chrono::steady_clock::now();
+#endif // TIME_MEASURERMENT
+
 	runForTeam(Team::MY, turnIdx);
+
+#ifdef TIME_MEASURERMENT
+	chrono::steady_clock::time_point myPodsEnd = chrono::steady_clock::now();
+	cerr << "My simulation execution time: " << chrono::duration_cast<std::chrono::milliseconds>(myPodsEnd - myPodsBegin).count() << " [ms]" << std::endl;
+#endif // TIME_MEASURERMENT
+	chooseTurnActions();
 }
 
 //*************************************************************************************************************
@@ -1910,9 +1935,9 @@ void GA::runForTeam(const Team team, const int turnIdx) {
 
 	init();
 
-	// MAX_POPULATION must be adjusted for the given time
+	// populationSize must be adjusted for the given time
 	// There is no single guaranteed solution, evolve while you can
-	while (populationIdx < MAX_POPULATION) {
+	while (populationIdx < populationSize) {
 		simulate(team);
 		prepareForRoulleteWheel();
 		makeChildren();
@@ -1954,12 +1979,6 @@ void GA::simulate(const Team team) {
 		}
 
 		const float chromEvaluation = raceSimulator.evaluate(team);
-
-		if (chromEvaluation > bestEvaluation) {
-			bestEvaluation = chromEvaluation;
-			bestChromosomeIdx = chromIdx;
-		}
-
 		evaluationsSum += chromEvaluation;
 		population[chromIdx].setEvaluation(chromEvaluation);
 
@@ -1975,10 +1994,6 @@ void GA::simulate(const Team team) {
 #ifdef SVG
 	svgManager.filePrintStr(CLOSE_GROUP);
 #endif // SVG
-
-	if (Team::ENEMY == team) {
-		enemyActions.copy(population[bestChromosomeIdx]);
-	}
 }
 
 //*************************************************************************************************************
@@ -2124,8 +2139,6 @@ void GA::resetPopulation() {
 //*************************************************************************************************************
 
 void GA::reset() {
-	bestEvaluation = MINUS_INFINITY;
-	bestChromosomeIdx = INVALID_IDX;
 	populationIdx = 0;
 	chromEvalIdxPairs.clear();
 
@@ -2154,8 +2167,19 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 //*************************************************************************************************************
 
 void GA::switchTeamsForSimulation() {
-	// Change max populations
-	// Change population size
+	enemyActions.copy(population[0]); // Last elitism stored the best chromosome in 0th position
+
+	populationSize = MY_MAX_POPULATION;
+	reset();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void GA::chooseTurnActions() {
+	const Chromosome& bestChromosome = population[0]; // Last elitism stored the best chromosome in 0th position
+	turnActions[0].parseGenes(bestChromosome.getGene(0), bestChromosome.getGene(1), bestChromosome.getGene(2));
+	turnActions[1].parseGenes(bestChromosome.getGene(3), bestChromosome.getGene(4), bestChromosome.getGene(5));
 }
 
 //-------------------------------------------------------------------------------------------------------------
