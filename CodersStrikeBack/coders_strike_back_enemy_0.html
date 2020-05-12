@@ -2,8 +2,8 @@
 <? xml version = "1.0" encoding = "UTF-8"?>
 <svg xmlns = "http://www.w3.org/2000/svg" version = "1.1" width = "16000" height = "9000" fill = "rgb(206, 224, 230) " style = "background-color:brown" >
 
-<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn Id: TeamName Team Simulation</text>
 <text id = "populationText" x = "10" y = "512" style = "font-family:sans-serif;font-size:256px;fill:black">Population Id</text>
+<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn 0: ENEMY Team Simulation</text>
 <circle cx="7982.000000" cy="7873.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
 <text x = "7902.000000" y = "7953.000000" style = "font-family:sans-serif;font-size:256px;fill:black">0</text>
 <circle cx="13284.000000" cy="5513.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
@@ -1182,12 +1182,12 @@ window.onkeydown = function(e) {
 	else if (106 == key) {
 		wholeSimulation(turn);
 	}
-	// Up arrow
-	else if (38 == key) {
+	// Page up
+	else if (33 == key) {
 		changeTurnTest()
 	}
-	// Down arrow
-	else if (40 == key) {
+	// Page down
+	else if (34 == key) {
 		changeTurn()
 	}
 }

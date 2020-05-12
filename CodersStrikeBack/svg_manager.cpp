@@ -18,18 +18,27 @@ SVGManager::~SVGManager() {
 
 void SVGManager::fileInit(const int turnIdx, const bool enemyTeam) {
 	string svgHtmlFileName = "";
+	string turnText = TURN_TEXT_BEGIN;
+	turnText += to_string(turnIdx);
+	turnText += TURN_TEXT_MIDDLE;
+
 	if (enemyTeam) {
 		svgHtmlFileName = SVG_HTML_FILE_NAME_ENEMY_BEGIN;
+		turnText += ENEMY;
 	}
 	else {
 		svgHtmlFileName = SVG_HTML_FILE_NAME_MY_BEGIN;
+		turnText += MY;
 	}
+
+	turnText += TURN_TEXT_END;
 
 	svgHtmlFileName += to_string(turnIdx);
 	svgHtmlFileName += SVG_HTML_FILE_NAME_END;
 
 	svgHtmlFileStream.open(svgHtmlFileName, ofstream::out | ofstream::trunc);
 	svgHtmlFileStream << FILE_START;
+	svgHtmlFileStream << turnText;
 }
 
 //*************************************************************************************************************

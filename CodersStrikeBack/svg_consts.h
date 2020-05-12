@@ -2,6 +2,9 @@
 
 #include <string>
 
+static const std::string ENEMY = "ENEMY";
+static const std::string MY = "MY";
+
 static const std::string SVG_HTML_FILE_NAME = "coders_strike_back.html";
 static const std::string SVG_HTML_FILE_NAME_ENEMY_BEGIN = "coders_strike_back_enemy_";
 static const std::string SVG_HTML_FILE_NAME_MY_BEGIN = "coders_strike_back_my_____";
@@ -10,6 +13,10 @@ static const std::string COMMA_SEPARATOR = ",";
 static const std::string SPACE_SEPARATOR = " ";
 static const std::string OPEN_GROUP = "<g>";
 static const std::string CLOSE_GROUP = R"(</g>
+)";
+static const std::string TURN_TEXT_BEGIN = R"(<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn )";
+static const std::string TURN_TEXT_MIDDLE = R"(: )";
+static const std::string TURN_TEXT_END = R"( Team Simulation</text>
 )";
 static const std::string ID_BEGIN = R"(<g id="turn)";
 static const std::string ID_END = R"(" style = "display:none;fill:green;">
@@ -33,7 +40,6 @@ static const std::string FILE_START = R"(
 <? xml version = "1.0" encoding = "UTF-8"?>
 <svg xmlns = "http://www.w3.org/2000/svg" version = "1.1" width = "16000" height = "9000" fill = "rgb(206, 224, 230) " style = "background-color:brown" >
 
-<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn Id: TeamName Team Simulation</text>
 <text id = "populationText" x = "10" y = "512" style = "font-family:sans-serif;font-size:256px;fill:black">Population Id</text>
 )";
 
@@ -119,12 +125,12 @@ window.onkeydown = function(e) {
 	else if (106 == key) {
 		wholeSimulation(turn);
 	}
-	// Up arrow
-	else if (38 == key) {
+	// Page up
+	else if (33 == key) {
 		changeTurnTest()
 	}
-	// Down arrow
-	else if (40 == key) {
+	// Page down
+	else if (34 == key) {
 		changeTurn()
 	}
 }
