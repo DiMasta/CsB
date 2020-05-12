@@ -3,7 +3,7 @@
 <svg xmlns = "http://www.w3.org/2000/svg" version = "1.1" width = "16000" height = "9000" fill = "rgb(206, 224, 230) " style = "background-color:brown" >
 
 <text id = "populationText" x = "10" y = "512" style = "font-family:sans-serif;font-size:256px;fill:black">Population Id</text>
-<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn 1: ENEMY Team Simulation</text>
+<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn 1 : ENEMY Team Simulation</text>
 <circle cx="7982.000000" cy="7873.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
 <text x = "7902.000000" y = "7953.000000" style = "font-family:sans-serif;font-size:256px;fill:black">0</text>
 <circle cx="13284.000000" cy="5513.000000" r="600" stroke="black" stroke-width="16" fill="rgb(204, 51, 0) "/>
@@ -1184,20 +1184,53 @@ window.onkeydown = function(e) {
 	}
 	// Page up
 	else if (33 == key) {
-		changeTurnTest()
+		loadNextTurn()
 	}
 	// Page down
 	else if (34 == key) {
-		changeTurn()
+		loadPreviousTurn()
 	}
 }
 
-function changeTurn() {
-	window.location.assign("coders_strike_back_enemy_0.html")
+function loadNextTurn() {
+	var turnText = document.getElementById("turnText").textContent
+	var turnTextSplitted = turnText.split(" ");
+	var turnIdx = parseInt(turnTextSplitted[1]);
+	var currentTeam = turnTextSplitted[3];
+	
+	var newFile = "coders_strike_back_";
+	if ("ENEMY" == currentTeam) {
+		newFile += "my_";		
+		newFile += String(turnIdx) + ".html";
+	}
+	else {
+		newFile += "enemy_";		
+		newFile += String(turnIdx + 1) + ".html";
+	}
+	
+	window.location.assign(newFile);
 }
 
-function changeTurnTest() {
-	window.location.assign("coders_strike_back_my_____0.html")
+function loadPreviousTurn() {
+	var turnText = document.getElementById("turnText").textContent
+	var turnTextSplitted = turnText.split(" ");
+	var turnIdx = parseInt(turnTextSplitted[1]);
+	var currentTeam = turnTextSplitted[3];
+
+	var newFile = "coders_strike_back_";
+	if ("ENEMY" == currentTeam) {
+		newFile += "my_";
+		newFile += String(turnIdx - 1) + ".html";
+		--turnIdx;
+	}
+	else {
+		newFile += "enemy_";
+		newFile += String(turnIdx) + ".html";
+	}
+
+	if (turnIdx >= 0) {
+		window.location.assign(newFile);
+	}
 }
 
 </script>

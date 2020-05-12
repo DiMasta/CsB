@@ -1374,12 +1374,6 @@ void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* en
 	for (int podActionIdx = 0; podActionIdx < PODS_COUNT; ++podActionIdx) {
 		pods[podActionIdx].reset();
 #ifdef SVG
-		// Draw initial pods positions
-		// My pods are still when simulating the enemy
-		if (Team::ENEMY == team && podActionIdx < TEAM_PODS_COUNT) {
-			continue;
-		}
-
 		podsPaths[podActionIdx].push_back(pods[podActionIdx].getPosition().toPair());
 #endif // SVG
 	}

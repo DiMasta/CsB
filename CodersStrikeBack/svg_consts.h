@@ -7,7 +7,7 @@ static const std::string MY = "MY";
 
 static const std::string SVG_HTML_FILE_NAME = "coders_strike_back.html";
 static const std::string SVG_HTML_FILE_NAME_ENEMY_BEGIN = "coders_strike_back_enemy_";
-static const std::string SVG_HTML_FILE_NAME_MY_BEGIN = "coders_strike_back_my_____";
+static const std::string SVG_HTML_FILE_NAME_MY_BEGIN = "coders_strike_back_my_";
 static const std::string SVG_HTML_FILE_NAME_END = ".html";
 static const std::string COMMA_SEPARATOR = ",";
 static const std::string SPACE_SEPARATOR = " ";
@@ -15,7 +15,7 @@ static const std::string OPEN_GROUP = "<g>";
 static const std::string CLOSE_GROUP = R"(</g>
 )";
 static const std::string TURN_TEXT_BEGIN = R"(<text id = "turnText" x = "10" y = "256" style = "font-family:sans-serif;font-size:256px;fill:black">Turn )";
-static const std::string TURN_TEXT_MIDDLE = R"(: )";
+static const std::string TURN_TEXT_MIDDLE = R"( : )";
 static const std::string TURN_TEXT_END = R"( Team Simulation</text>
 )";
 static const std::string ID_BEGIN = R"(<g id="turn)";
@@ -127,20 +127,53 @@ window.onkeydown = function(e) {
 	}
 	// Page up
 	else if (33 == key) {
-		changeTurnTest()
+		loadNextTurn()
 	}
 	// Page down
 	else if (34 == key) {
-		changeTurn()
+		loadPreviousTurn()
 	}
 }
 
-function changeTurn() {
-	window.location.assign("coders_strike_back_enemy_0.html")
+function loadNextTurn() {
+	var turnText = document.getElementById("turnText").textContent
+	var turnTextSplitted = turnText.split(" ");
+	var turnIdx = parseInt(turnTextSplitted[1]);
+	var currentTeam = turnTextSplitted[3];
+	
+	var newFile = "coders_strike_back_";
+	if ("ENEMY" == currentTeam) {
+		newFile += "my_";		
+		newFile += String(turnIdx) + ".html";
+	}
+	else {
+		newFile += "enemy_";		
+		newFile += String(turnIdx + 1) + ".html";
+	}
+	
+	window.location.assign(newFile);
 }
 
-function changeTurnTest() {
-	window.location.assign("coders_strike_back_my_____0.html")
+function loadPreviousTurn() {
+	var turnText = document.getElementById("turnText").textContent
+	var turnTextSplitted = turnText.split(" ");
+	var turnIdx = parseInt(turnTextSplitted[1]);
+	var currentTeam = turnTextSplitted[3];
+
+	var newFile = "coders_strike_back_";
+	if ("ENEMY" == currentTeam) {
+		newFile += "my_";
+		newFile += String(turnIdx - 1) + ".html";
+		--turnIdx;
+	}
+	else {
+		newFile += "enemy_";
+		newFile += String(turnIdx) + ".html";
+	}
+
+	if (turnIdx >= 0) {
+		window.location.assign(newFile);
+	}
 }
 
 </script>
