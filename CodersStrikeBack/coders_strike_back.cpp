@@ -21,8 +21,8 @@
 
 using namespace std;
 
-#define SVG
-#define REDIRECT_INPUT
+//#define SVG
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -400,7 +400,7 @@ int Action::getThrust() const {
 //*************************************************************************************************************
 
 void Action::output(const Coords podPosition, const float podAngle) const {
-	float a = podAngle + ALL_ANGLES[getAngleIdx()];
+	float a = podAngle + angle;
 
 	if (a >= 360.f) {
 		a = a - 360.f;
@@ -2381,9 +2381,11 @@ void Game::makeTurn() {
 void Game::turnEnd() {
 	raceSimulator.turnEnd();
 
+#ifdef REDIRECT_INPUT
 	if (1 == turnsCount) {
 		stopGame = true;
 	}
+#endif // REDIRECT_INPUT
 
 	++turnsCount;
 }
