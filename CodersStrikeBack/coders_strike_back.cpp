@@ -21,8 +21,8 @@
 
 using namespace std;
 
-#define SVG
-#define REDIRECT_INPUT
+//#define SVG
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -35,8 +35,8 @@ using namespace std;
 
 using ChromEvalIdxMap = std::map<float, int>;
 
-//static const string INPUT_FILE_NAME = "input.txt";
-static const string INPUT_FILE_NAME = "input_classic_track.txt";
+static const string INPUT_FILE_NAME = "input.txt";
+//static const string INPUT_FILE_NAME = "input_classic_track.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
 static const string EMPTY_STRING = "";
 static const string SPACE = " ";
@@ -1652,6 +1652,7 @@ void RaceSimulator::setPodsRoles() {
 
 void RaceSimulator::turnEnd() {
 	for (int podIdx = 0; podIdx < PODS_COUNT; ++podIdx) {
+		pods[podIdx].reset(); // After the last simulation
 		pods[podIdx].turnEnd();
 	}
 }
@@ -1995,6 +1996,14 @@ void GA::prepareForRoulleteWheel() {
 
 		chromEvalIdxPairs[normalizedEvaluation] = chromIdx; // Is it good think to use floats as keys
 	}
+
+	//float sum = 0.f;
+	//for (pair<const float, int>& p : chromEvalIdxPairs) {
+	//	sum += p.first;
+	//}
+	//
+	//int debug = 0;
+	//++debug;
 }
 
 //*************************************************************************************************************
@@ -2377,7 +2386,7 @@ void Game::turnEnd() {
 	raceSimulator.turnEnd();
 
 #ifdef REDIRECT_INPUT
-	if (1 == turnsCount) {
+	if (11 == turnsCount) {
 		stopGame = true;
 	}
 #endif // REDIRECT_INPUT
@@ -2389,7 +2398,6 @@ void Game::turnEnd() {
 //*************************************************************************************************************
 
 void Game::play() {
-	cerr << "Debug" << endl;
 	initGame();
 	getGameInput();
 	gameBegin();
@@ -2451,4 +2459,9 @@ seed = 681000254
 pod_per_player = 2
 pod_timeout = 100
 map = 7982 7873 13284 5513 9539 1380 3637 4405
+
+seed=934785373
+pod_per_player=2
+pod_timeout=100
+map=11506 6100 9112 1855 5027 5287
 */

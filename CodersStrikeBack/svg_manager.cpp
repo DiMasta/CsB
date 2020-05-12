@@ -81,9 +81,11 @@ void SVGManager::constructPaths(vector<pair<float, float>> (&podsPaths)[4], cons
 
 	for (int podIdx = 0; podIdx < 4; ++podIdx) {
 		if (enemySimulation && podIdx < 2) {
+			podsPaths[podIdx].clear();
 			continue;
 		}
 		else if (!enemySimulation && podIdx >= 2) {
+			podsPaths[podIdx].clear();
 			continue;
 		}
 		else {
