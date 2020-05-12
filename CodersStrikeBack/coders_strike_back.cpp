@@ -1975,11 +1975,7 @@ void GA::simulate(const Team team) {
 		population[chromIdx].setEvaluation(chromEvaluation);
 
 #ifdef SVG
-		svgManager.constructPaths(raceSimulator.podsPaths, populationIdx, Team::ENEMY == team);
-		raceSimulator.podsPaths[0].clear();
-		raceSimulator.podsPaths[1].clear();
-		raceSimulator.podsPaths[2].clear();
-		raceSimulator.podsPaths[3].clear();
+		svgManager.constructPaths(raceSimulator.podsPaths, Team::ENEMY == team);
 #endif // SVG
 	}
 
@@ -2162,6 +2158,11 @@ void GA::switchTeamsForSimulation(const Team simulationTeam) {
 	if (Team::MY == simulationTeam) {
 		enemyActions.copy(population[0]); // Last elitism stored the best chromosome in 0th position
 		populationSize = MY_MAX_POPULATION;
+
+#ifdef SVG
+		raceSimulator.simulate(population[0], nullptr, Team::ENEMY);
+		svgManager.constructPaths(raceSimulator.podsPaths, true);
+#endif // SVG
 	}
 	else {
 		populationSize = ENEMY_MAX_POPULATION;

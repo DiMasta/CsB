@@ -51,14 +51,19 @@ static const std::string FILE_END = R"(
 var turn = 0;
 var turnStr = "turn";
 function showNextSim() {
+	var currentTurnElementId = turnStr + turn;
+	var elem = document.getElementById(currentTurnElementId)
+	elem.style.display = "block";
+	changePopulationText(turn);
+
 	if (turn > 0) {
 		var previousTurnElementId = turnStr + (turn - 1);
-		document.getElementById(previousTurnElementId).style.display = "none";
+		
+		if (typeof(elem) != 'undefined' && elem != null) {
+			document.getElementById(previousTurnElementId).style.display = "none";
+		}
 	}
 
-	var currentTurnElementId = turnStr + turn;
-	document.getElementById(currentTurnElementId).style.display = "block";
-	changePopulationText(turn);
 	++turn;
 }
 
