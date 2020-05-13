@@ -783,6 +783,15 @@ void Pod::fillData(
 		initialTurnTurnsLeft = turnsLeft; // turnsLeft are managed in turnEnd()
 	}
 
+	if (hasFlag(SHIELD_FLAG)) {
+		--initialSheildTurnsLeft;
+		--sheildTurnsLeft;
+
+		if (sheildTurnsLeft < 0) {
+			unsetFlag(SHIELD_FLAG, true);
+		}
+	}
+
 	this->initialTurnPosition = { x, y };
 	this->position = { x, y };
 	this->initialTurnVelocity= { vx, vy };
@@ -1748,18 +1757,10 @@ bool RaceSimulator::teamWon(const Team team) {
 //*************************************************************************************************************
 
 bool RaceSimulator::teamLost(const Team team) {
-	bool lost = false;
 	const int firstPodIdx = (Team::MY == team) ? 0 : TEAM_PODS_COUNT;
 	const int lastPodIdx = (Team::MY == team) ? (TEAM_PODS_COUNT - 1) : PODS_COUNT - 1;
 
-	for (int podIdx = firstPodIdx; podIdx <= lastPodIdx; ++podIdx) {
-		if (pods[podIdx].eliminated()) {
-			lost = true;
-			break;
-		}
-	}
-
-	return lost;
+	return pods[firstPodIdx].eliminated() && pods[lastPodIdx].eliminated();
 }
 
 //-------------------------------------------------------------------------------------------------------------
