@@ -48,23 +48,32 @@ static const std::string FILE_END = R"(
 
 <script>
 
+var endSimReached = 0;
 var turn = 0;
 var turnStr = "turn";
 function showNextSim() {
-	var currentTurnElementId = turnStr + turn;
-	var elem = document.getElementById(currentTurnElementId)
-	elem.style.display = "block";
-	changePopulationText(turn);
-
-	if (turn > 0) {
-		var previousTurnElementId = turnStr + (turn - 1);
+	if (endSimReached) {
+		loadNextTurn();
+	} else {
+		var currentTurnElementId = turnStr + turn;
+		var elem = document.getElementById(currentTurnElementId)
 		
 		if (typeof(elem) != 'undefined' && elem != null) {
+			elem.style.display = "block";
+			changePopulationText(turn);
+		}
+		else {
+			endSimReached = true;
+			return;
+		}
+
+		if (turn > 0) {
+			var previousTurnElementId = turnStr + (turn - 1);
 			document.getElementById(previousTurnElementId).style.display = "none";
 		}
-	}
 
-	++turn;
+		++turn;
+	}
 }
 
 function showPreviousSim() {
@@ -132,11 +141,11 @@ window.onkeydown = function(e) {
 	}
 	// Page up
 	else if (33 == key) {
-		loadNextTurn()
+		loadNextTurn();
 	}
 	// Page down
 	else if (34 == key) {
-		loadPreviousTurn()
+		loadPreviousTurn();
 	}
 }
 
@@ -148,11 +157,11 @@ function loadNextTurn() {
 	
 	var newFile = "coders_strike_back_";
 	if ("ENEMY" == currentTeam) {
-		newFile += "my_";		
+		newFile += "my_";
 		newFile += String(turnIdx) + ".html";
 	}
 	else {
-		newFile += "enemy_";		
+		newFile += "enemy_";
 		newFile += String(turnIdx + 1) + ".html";
 	}
 	

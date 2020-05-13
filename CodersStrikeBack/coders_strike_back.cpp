@@ -21,8 +21,8 @@
 
 using namespace std;
 
-//#define SVG
-//#define REDIRECT_INPUT
+#define SVG
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -35,8 +35,9 @@ using namespace std;
 
 using ChromEvalIdxMap = std::map<float, int>;
 
-static const string INPUT_FILE_NAME = "input.txt";
+//static const string INPUT_FILE_NAME = "input.txt";
 //static const string INPUT_FILE_NAME = "input_classic_track.txt";
+static const string INPUT_FILE_NAME = "input_triangle.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
 static const string EMPTY_STRING = "";
 static const string SPACE = " ";
@@ -1295,6 +1296,10 @@ public:
 	/// @return the evaluation for the pods
 	float evaluate(const Team team);
 
+	/// Perform the first turn. Rotate pods as much as needed to the checkpoint.
+	/// Use maximum acceleration
+	void makeFirstTurn();
+
 #ifdef SVG
 	vector<pair<float, float>> podsPaths[PODS_COUNT]; ///< Path for each pod
 #endif // SVG
@@ -1704,6 +1709,18 @@ float RaceSimulator::evaluate(const Team team) {
 	}
 
 	return evaluation;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void RaceSimulator::makeFirstTurn() {
+	Coords firstCheckPoint = track.getCheckpoint(1);
+	const int cpX = static_cast<int>(firstCheckPoint.x);
+	const int cpY = static_cast<int>(firstCheckPoint.y);
+
+	cout << cpX << SPACE << cpY << SPACE << MAX_THRUST << endl;
+	cout << cpX << SPACE << cpY << SPACE << BOOST << endl;
 }
 
 //*************************************************************************************************************
@@ -2325,6 +2342,12 @@ void Game::getTurnInput() {
 		int nextCheckPointId; // next check point id of your pod
 		cin >> x >> y >> vx >> vy >> angle >> nextCheckPointId; cin.ignore();
 
+#ifdef REDIRECT_INPUT
+		if (INVALID_ID == x) {
+			stopGame = true;
+	}
+#endif // REDIRECT_INPUT
+
 #ifdef OUTPUT_GAME_DATA
 		cerr << x << SPACE << y << SPACE << vx << SPACE << vy << SPACE << angle << SPACE << nextCheckPointId << endl;
 #endif // OUTPUT_GAME_DATA
@@ -2353,30 +2376,28 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
-	raceSimulator.setPodsRoles();
-	ga.run(turnsCount);
+	if (!stopGame && turnsCount > 0) {
+		raceSimulator.setPodsRoles();
+		ga.run(turnsCount);
+	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	const Action pod0Action = ga.getTurnAction(0);
-	raceSimulator.manageTurnAction(pod0Action, 0);
-	pod0Action.output(raceSimulator.getPod(0).getInitialTurnPosition(), raceSimulator.getPod(0).getInitialTurnAngle());
+	if (0 == turnsCount) {
+		raceSimulator.makeFirstTurn();
+	}
+	else {
+		const Action pod0Action = ga.getTurnAction(0);
+		raceSimulator.manageTurnAction(pod0Action, 0);
+		pod0Action.output(raceSimulator.getPod(0).getInitialTurnPosition(), raceSimulator.getPod(0).getInitialTurnAngle());
 
-	const Action pod1Action = ga.getTurnAction(1);
-	raceSimulator.manageTurnAction(pod1Action, 1);
-	pod1Action.output(raceSimulator.getPod(1).getInitialTurnPosition(), raceSimulator.getPod(1).getInitialTurnAngle());
-
-	//if (0 == turnsCount) {
-	//	cout << "13284 5513 BOOST" << endl;
-	//}
-	//else {
-	//	cout << "13284 5513 100" << endl;
-	//}
-	//
-	//cout << "13284 5513 100" << endl;
+		const Action pod1Action = ga.getTurnAction(1);
+		raceSimulator.manageTurnAction(pod1Action, 1);
+		pod1Action.output(raceSimulator.getPod(1).getInitialTurnPosition(), raceSimulator.getPod(1).getInitialTurnAngle());
+	}
 }
 
 //*************************************************************************************************************
@@ -2384,13 +2405,6 @@ void Game::makeTurn() {
 
 void Game::turnEnd() {
 	raceSimulator.turnEnd();
-
-#ifdef REDIRECT_INPUT
-	if (11 == turnsCount) {
-		stopGame = true;
-	}
-#endif // REDIRECT_INPUT
-
 	++turnsCount;
 }
 
