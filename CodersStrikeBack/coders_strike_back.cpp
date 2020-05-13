@@ -21,8 +21,8 @@
 
 using namespace std;
 
-#define SVG
-#define REDIRECT_INPUT
+//#define SVG
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -775,6 +775,9 @@ void Pod::fillData(
 		// Checkpooint reached
 		initialTurnTurnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
 		turnsLeft = INITIAL_NEXT_CHECKPOINT_TURNS_LEFT;
+
+		++initialTurnPassedCheckpoints;
+		++passedCheckpoints;
 	}
 	else {
 		initialTurnTurnsLeft = turnsLeft; // turnsLeft are managed in turnEnd()
@@ -2014,13 +2017,15 @@ void GA::prepareForRoulleteWheel() {
 		chromEvalIdxPairs[normalizedEvaluation] = chromIdx; // Is it good think to use floats as keys
 	}
 
-	//float sum = 0.f;
-	//for (pair<const float, int>& p : chromEvalIdxPairs) {
-	//	sum += p.first;
-	//}
-	//
-	//int debug = 0;
-	//++debug;
+#ifdef REDIRECT_INPUT
+	float sum = 0.f;
+	for (pair<const float, int>& p : chromEvalIdxPairs) {
+		sum += p.first;
+	}
+	
+	int debug = 0;
+	++debug;
+#endif // REDIRECT_INPUT
 }
 
 //*************************************************************************************************************
