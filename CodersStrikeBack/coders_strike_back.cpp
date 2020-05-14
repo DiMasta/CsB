@@ -24,7 +24,7 @@ using namespace std;
 //#define SVG
 //#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
-#define TIME_MEASURERMENT
+//#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
@@ -33,7 +33,8 @@ using namespace std;
 #include "svg_manager.h"
 #endif // SVG
 
-using ChromEvalIdxMap = std::map<float, int>;
+//using ChromEvalIdxMap = std::map<float, int>;
+using ChromEvalIdxMap = std::multimap<float, int>;
 
 //static const string INPUT_FILE_NAME = "input.txt";
 //static const string INPUT_FILE_NAME = "input_classic_track.txt";
@@ -343,6 +344,9 @@ Action::Action(const Coords target, const string& thrustStr) :
 void Action::parseGenes(const float gene0, const float gene1, const float gene2) {
 	if (gene0 > 0.95f) {
 		setFlag(SHIELD_FLAG);
+	}
+	else {
+		unsetFlag(SHIELD_FLAG);
 	}
 
 	if (gene1 < 0.25f) {
@@ -786,9 +790,8 @@ void Pod::fillData(
 
 	if (hasFlag(SHIELD_FLAG)) {
 		--initialSheildTurnsLeft;
-		--sheildTurnsLeft;
 
-		if (sheildTurnsLeft < 0) {
+		if (sheildTurnsLeft <= 0) {
 			unsetFlag(SHIELD_FLAG, true);
 		}
 	}
@@ -1681,6 +1684,7 @@ void RaceSimulator::turnEnd() {
 void RaceSimulator::manageTurnAction(const Action turnAction, const int podIdx) {
 	if (turnAction.hasFlag(SHIELD_FLAG)) {
 		pods[podIdx].activateShield();
+		//pods[podIdx].setFlag(SHIELD_FLAG, true);
 	}
 }
 
@@ -1698,13 +1702,15 @@ float RaceSimulator::evaluate(const Team team) {
 	}
 
 	// When simulating enemy my pods are still
-	if ((Team::ENEMY != team && teamWon(opponentTeam)) || teamLost(firstPersonTeam)) {
-		evaluation = MINUS_INFINITY;
-	}
-	else if ((Team::ENEMY != team && teamLost(opponentTeam)) || teamWon(firstPersonTeam)) {
-		evaluation = PLUS_INFINITY;
-	}
-	else {
+	//if ((Team::ENEMY != team && teamWon(opponentTeam)) || teamLost(firstPersonTeam)) {
+	//	evaluation = MINUS_INFINITY;
+	//	cerr << "MINUS_INF" << endl;
+	//}
+	//else if ((Team::ENEMY != team && teamLost(opponentTeam)) || teamWon(firstPersonTeam)) {
+	//	evaluation = PLUS_INFINITY;
+	//	cerr << "PLUS_INF" << endl;
+	//}
+	//else {
 		const Pod& myRunner = getPod(firstPersonTeam, RUNNER_FLAG);
 		const Pod& myHunter = getPod(firstPersonTeam, HUNTER_FLAG);
 		const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
@@ -1719,7 +1725,7 @@ float RaceSimulator::evaluate(const Team team) {
 			evaluation += myRunner.score(track);
 			evaluation += myHunter.score(track);
 		//}
-	}
+	//}
 
 	return evaluation;
 }
@@ -2016,7 +2022,8 @@ void GA::prepareForRoulleteWheel() {
 		const float normalizedEvaluation = chromosome.getEvaluation() / evaluationsSum; // normalize the evalutions
 		chromosome.setEvaluation(normalizedEvaluation);
 
-		chromEvalIdxPairs[normalizedEvaluation] = chromIdx; // Is it good think to use floats as keys
+		//chromEvalIdxPairs[normalizedEvaluation] = chromIdx; // Is it good think to use floats as keys
+		chromEvalIdxPairs.insert(pair<float, int>(normalizedEvaluation, chromIdx)); // Is it good think to use floats as keys
 	}
 
 #ifdef REDIRECT_INPUT
@@ -2081,10 +2088,6 @@ void GA::crossover(int parent0Idx, int parent1Idx, int childrenCount) {
 		const float child0Gene = (beta * parent0Gene) + ((1.f - beta) * parent1Gene);
 		const float child1Gene = ((1.f - beta) * parent0Gene) + (beta * parent1Gene);
 
-		if (child0Gene > 1.f || child1Gene > 1.f) {
-			cerr << "BIG GENE" << endl;
-		}
-
 		newPopulation[childrenCount].setGene(geneIdx, child0Gene);
 		newPopulation[childrenCount + 1].setGene(geneIdx, child1Gene);
 	}
@@ -2119,6 +2122,12 @@ void GA::elitism() {
 //*************************************************************************************************************
 
 void GA::makeChildren() {
+#ifdef REDIRECT_INPUT
+	for (ChromEvalIdxMap::const_iterator it = chromEvalIdxPairs.begin(); it != chromEvalIdxPairs.end(); ++it) {
+		cerr << it->first << ":\t" << it->second << endl;
+	}
+#endif // REDIRECT_INPUT
+
 	// While the new population is not completly filled
 	// select a pair of parents
 	// crossover those parents using the Continuos Genetic Algorithm technique
@@ -2213,12 +2222,15 @@ void GA::switchTeamsForSimulation(const Team simulationTeam) {
 
 void GA::chooseTurnActions() {
 	const Chromosome& bestChromosome = population[0]; // Last elitism stored the best chromosome in 0th position
+
 	turnActions[0].parseGenes(bestChromosome.getGene(0), bestChromosome.getGene(1), bestChromosome.getGene(2));
 	turnActions[1].parseGenes(
 		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 0),
 		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 1),
 		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 2)
 	);
+
+	cerr << bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 0) << endl;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -2308,7 +2320,9 @@ void Game::gameLoop() {
 #endif // TIME_MEASURERMENT
 
 #ifdef DEBUG_ONE_TURN
-		break;
+		if (2 == turnsCount) {
+			break;
+		}
 #endif // DEBUG_ONE_TURN
 	}
 }
@@ -2360,7 +2374,7 @@ void Game::getTurnInput() {
 #ifdef REDIRECT_INPUT
 		if (INVALID_ID == x) {
 			stopGame = true;
-	}
+		}
 #endif // REDIRECT_INPUT
 
 #ifdef OUTPUT_GAME_DATA
