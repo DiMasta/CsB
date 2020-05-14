@@ -85,6 +85,7 @@ static constexpr unsigned int FIRST_TURN_FLAG	= 0b0000'0000'0000'0001'0000'0000'
 
 static constexpr float MIN_ANGLE = -18.f;
 static constexpr float MAX_ANGLE = 18.f;
+static constexpr float MAX_ANGLE_DOUBLED = MAX_ANGLE * 2.f;
 static constexpr float TURN_START_TIME = 0.f;
 static constexpr float TURN_END_TIME = 1.f;
 static constexpr float FRICTION = .85f;
@@ -351,7 +352,7 @@ void Action::parseGenes(const float gene0, const float gene1, const float gene2)
 		setAngle(MAX_ANGLE);
 	}
 	else {
-		setAngle(MIN_ANGLE + MAX_ANGLE * ((gene1 - 0.25f) * 2.f));
+		setAngle(MIN_ANGLE + MAX_ANGLE_DOUBLED * ((gene1 - 0.25f) * 2.f));
 	}
 
 	if (gene2 < 0.25f) {
@@ -1414,9 +1415,9 @@ void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* en
 			const float e01 = enemyActions->getGene(geneIdx + 1);
 			const float e02 = enemyActions->getGene(geneIdx + 2);
 
-			const float e10 = enemyActions->getGene(geneIdx);
-			const float e11 = enemyActions->getGene(geneIdx + 1);
-			const float e12 = enemyActions->getGene(geneIdx + 2);
+			const float e10 = enemyActions->getGene(CHROMOSOME_HALF_SIZE + geneIdx);
+			const float e11 = enemyActions->getGene(CHROMOSOME_HALF_SIZE + geneIdx + 1);
+			const float e12 = enemyActions->getGene(CHROMOSOME_HALF_SIZE + geneIdx + 2);
 
 			podsActions[2].parseGenes(e00, e01, e02);
 			podsActions[3].parseGenes(e10, e11, e12);
