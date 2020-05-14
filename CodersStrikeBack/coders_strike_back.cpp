@@ -2081,6 +2081,10 @@ void GA::crossover(int parent0Idx, int parent1Idx, int childrenCount) {
 		const float child0Gene = (beta * parent0Gene) + ((1.f - beta) * parent1Gene);
 		const float child1Gene = ((1.f - beta) * parent0Gene) + (beta * parent1Gene);
 
+		if (child0Gene > 1.f || child1Gene > 1.f) {
+			cerr << "BIG GENE" << endl;
+		}
+
 		newPopulation[childrenCount].setGene(geneIdx, child0Gene);
 		newPopulation[childrenCount + 1].setGene(geneIdx, child1Gene);
 	}
@@ -2210,7 +2214,11 @@ void GA::switchTeamsForSimulation(const Team simulationTeam) {
 void GA::chooseTurnActions() {
 	const Chromosome& bestChromosome = population[0]; // Last elitism stored the best chromosome in 0th position
 	turnActions[0].parseGenes(bestChromosome.getGene(0), bestChromosome.getGene(1), bestChromosome.getGene(2));
-	turnActions[1].parseGenes(bestChromosome.getGene(3), bestChromosome.getGene(4), bestChromosome.getGene(5));
+	turnActions[1].parseGenes(
+		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 0),
+		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 1),
+		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 2)
+	);
 }
 
 //-------------------------------------------------------------------------------------------------------------
