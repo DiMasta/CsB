@@ -581,6 +581,7 @@ public:
 
 	void setPosition(const Coords position) { this->position = position; }
 	void setVelocity(const Coords velocity) { this->velocity = velocity; }
+	void setInitalShieldTurns(const int shieldTurns) { this->initialSheildTurnsLeft = shieldTurns; }
 
 	Coords getPosition() const { return position; }
 	Coords getInitialTurnPosition() const { return initialTurnPosition; }
@@ -789,9 +790,9 @@ void Pod::fillData(
 	}
 
 	if (hasFlag(SHIELD_FLAG)) {
-		--initialSheildTurnsLeft;
+		initialSheildTurnsLeft = sheildTurnsLeft;
 
-		if (sheildTurnsLeft <= 0) {
+		if (initialSheildTurnsLeft <= 0) {
 			unsetFlag(SHIELD_FLAG, true);
 		}
 	}
@@ -1684,7 +1685,8 @@ void RaceSimulator::turnEnd() {
 void RaceSimulator::manageTurnAction(const Action turnAction, const int podIdx) {
 	if (turnAction.hasFlag(SHIELD_FLAG)) {
 		pods[podIdx].activateShield();
-		//pods[podIdx].setFlag(SHIELD_FLAG, true);
+		pods[podIdx].setFlag(SHIELD_FLAG, true);
+		pods[podIdx].setInitalShieldTurns(SHEILD_TURNS);
 	}
 }
 
@@ -2122,11 +2124,6 @@ void GA::elitism() {
 //*************************************************************************************************************
 
 void GA::makeChildren() {
-#ifdef REDIRECT_INPUT
-	for (ChromEvalIdxMap::const_iterator it = chromEvalIdxPairs.begin(); it != chromEvalIdxPairs.end(); ++it) {
-		cerr << it->first << ":\t" << it->second << endl;
-	}
-#endif // REDIRECT_INPUT
 
 	// While the new population is not completly filled
 	// select a pair of parents
@@ -2229,8 +2226,6 @@ void GA::chooseTurnActions() {
 		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 1),
 		bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 2)
 	);
-
-	cerr << bestChromosome.getGene(CHROMOSOME_HALF_SIZE + 0) << endl;
 }
 
 //-------------------------------------------------------------------------------------------------------------
