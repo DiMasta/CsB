@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <ctime>
 #include <deque>
-#include <math.h>
 #include <climits>
 #include <cstring>
 #include <fstream>
@@ -24,7 +23,7 @@ using namespace std;
 //#define SVG
 //#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
-//#define TIME_MEASURERMENT
+#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
@@ -119,11 +118,11 @@ static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
 };
 
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 8;
+static constexpr int TURNS_TO_SIMULATE = 10;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
 static constexpr int ENEMY_MAX_POPULATION = 32;
-static constexpr int MY_MAX_POPULATION = 64;
+static constexpr int MY_MAX_POPULATION = 80;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
@@ -1905,25 +1904,28 @@ GA::~GA() {
 //*************************************************************************************************************
 
 void GA::run(const int turnIdx) {
-#ifdef TIME_MEASURERMENT
-	chrono::steady_clock::time_point enemyPodsBegin = chrono::steady_clock::now();
-#endif // TIME_MEASURERMENT
+//#ifdef TIME_MEASURERMENT
+//	clock_t enemyPodsBegin = clock();
+//#endif // TIME_MEASURERMENT
 
 	runForTeam(Team::ENEMY, turnIdx);
 
-#ifdef TIME_MEASURERMENT
-	chrono::steady_clock::time_point enemyPodsEnd = chrono::steady_clock::now();
-	cerr << "Enemy simulation execution time: " << chrono::duration_cast<std::chrono::milliseconds>(enemyPodsEnd - enemyPodsBegin).count() << " [ms]" << std::endl;
-
-	chrono::steady_clock::time_point myPodsBegin = chrono::steady_clock::now();
-#endif // TIME_MEASURERMENT
+//#ifdef TIME_MEASURERMENT
+//	clock_t enemyPodsEnd = clock();
+//	double enemy_elapsed_secs = double(enemyPodsEnd - enemyPodsBegin) / CLOCKS_PER_SEC;
+//	cerr << "Enemy simulation execution time: " << enemy_elapsed_secs * 1000 << endl;
+//
+//	clock_t myPodsBegin = clock();
+//#endif // TIME_MEASURERMENT
 
 	runForTeam(Team::MY, turnIdx);
 
-#ifdef TIME_MEASURERMENT
-	chrono::steady_clock::time_point myPodsEnd = chrono::steady_clock::now();
-	cerr << "My simulation execution time: " << chrono::duration_cast<std::chrono::milliseconds>(myPodsEnd - myPodsBegin).count() << " [ms]" << std::endl;
-#endif // TIME_MEASURERMENT
+//#ifdef TIME_MEASURERMENT
+//	clock_t myPodsEnd = clock();
+//	double elapsed_secs = double(myPodsEnd - myPodsBegin) / CLOCKS_PER_SEC;
+//	cerr << "My simulation execution time: " << elapsed_secs * 1000 << endl;
+//#endif // TIME_MEASURERMENT
+
 	chooseTurnActions();
 }
 
@@ -2301,7 +2303,7 @@ void Game::gameEnd() {
 void Game::gameLoop() {
 	while (!stopGame) {
 #ifdef TIME_MEASURERMENT
-		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+		clock_t turnBeginTime = clock();
 #endif // TIME_MEASURERMENT
 
 		getTurnInput();
@@ -2310,8 +2312,9 @@ void Game::gameLoop() {
 		turnEnd();
 
 #ifdef TIME_MEASURERMENT
-		chrono::steady_clock::time_point end = chrono::steady_clock::now();
-		cerr << "Turn[" << turnsCount - 1 << "] execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
+		clock_t tunrEndTime = clock();
+		double elapsed_secs = double(tunrEndTime - turnBeginTime) / CLOCKS_PER_SEC;
+		cerr << "Turn[" << turnsCount - 1 << "] execution time: " << elapsed_secs * 1000 << endl;
 #endif // TIME_MEASURERMENT
 
 #ifdef DEBUG_ONE_TURN
@@ -2417,7 +2420,7 @@ void Game::makeTurn() {
 		const Action pod0Action = ga.getTurnAction(0);
 		raceSimulator.manageTurnAction(pod0Action, 0);
 		pod0Action.output(raceSimulator.getPod(0).getInitialTurnPosition(), raceSimulator.getPod(0).getInitialTurnAngle());
-
+	
 		const Action pod1Action = ga.getTurnAction(1);
 		raceSimulator.manageTurnAction(pod1Action, 1);
 		pod1Action.output(raceSimulator.getPod(1).getInitialTurnPosition(), raceSimulator.getPod(1).getInitialTurnAngle());
@@ -2474,17 +2477,18 @@ int main(int argc, char** argv) {
 	cout.rdbuf(out.rdbuf());
 #endif // REDIRECT_INPUT
 
-#ifdef TIME_MEASURERMENT
-	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-#endif // TIME_MEASURERM
+//#ifdef TIME_MEASURERMENT
+//	clock_t begin = clock();
+//#endif // TIME_MEASURERM
 
 	Game game;
 	game.play();
 
-#ifdef TIME_MEASURERMENT
-	chrono::steady_clock::time_point end = chrono::steady_clock::now();
-	cerr << "Game execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
-#endif // TIME_MEASURERMENT
+//#ifdef TIME_MEASURERMENT
+//	clock_t end = clock();
+//	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+//	cerr << "Game execution time: " << elapsed_secs * 1000 << endl;
+//#endif // TIME_MEASURERMENT
 
 #endif // TESTS
 
