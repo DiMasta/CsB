@@ -1982,7 +1982,7 @@ void GA::makeChildren() {
 //*************************************************************************************************************
 
 void GA::resetPopulation() {
-	//cerr << "resetPopulation()" << endl;
+	//cerr << "resetPopulation()" << endl; 
 
 	evaluationsSum = 0.f;
 	chromEvalIdxPairs.clear();
