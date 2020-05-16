@@ -20,11 +20,11 @@
 
 using namespace std;
 
-//#define SVG
-//#define REDIRECT_INPUT
+#define SVG
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
-//#define DEBUG_ONE_TURN
+#define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
 
@@ -962,11 +962,13 @@ public:
 	Chromosome();
 
 	void setEvaluation(const float evaluation) { this->evaluation = evaluation; }
+	void setOriginalEvaluation(const float originalEvaluation) { this->originalEvaluation = originalEvaluation; }
 	void setGene(const int geneIdx, const float geneValue) { genes[geneIdx] = geneValue; }
 	void setFlags(const unsigned int flags) { this->flags = flags; }
 	void setFlag(const unsigned int flag) { flags |= flag; }
 
 	float getEvaluation() const { return evaluation; }
+	float getOriginalEvaluation() const { return originalEvaluation; }
 	float getGene(const int geneIdx)const { return genes[geneIdx]; }
 	unsigned int getFlags() const { return flags; }
 	bool hasFlag(const unsigned int flag) const { return flag & flags; }
@@ -990,7 +992,8 @@ private:
 	/// Second half of the genes represent actions for the pod[1] of the team
 	float genes[CHROMOSOME_SIZE];
 
-	float evaluation; ///< The evaluation value for this genes, set by race simulator
+	float evaluation; ///< The evaluation value for this genes, set by race simulator, will be normalized
+	float originalEvaluation; ///< Not normalized evaluation
 	unsigned int flags; /// Stored chromosome properties
 };
 
@@ -999,6 +1002,7 @@ private:
 
 Chromosome::Chromosome() :
 	evaluation{},
+	originalEvaluation{},
 	flags{}
 {}
 
@@ -1006,6 +1010,8 @@ Chromosome::Chromosome() :
 //*************************************************************************************************************
 
 void Chromosome::initRandom() {
+	reset();
+
 	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
 		genes[geneIdx] = randomFloatBetween0and1();
 	}
@@ -1779,16 +1785,25 @@ void GA::simulate(const Team team) {
 #endif // SVG
 
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
+		Chromosome& chromosome = population[chromIdx];
+		if (chromosome.hasFlag(COPIED_FLAG)) {
+			const float originalEvaluation = chromosome.getOriginalEvaluation();
+			evaluationsSum += originalEvaluation;
+			chromosome.setEvaluation(originalEvaluation);
+			continue;
+		}
+
 		if (Team::MY == team) {
-			raceSimulator.simulate(population[chromIdx], &enemyActions, team);
+			raceSimulator.simulate(chromosome, &enemyActions, team);
 		}
 		else {
-			raceSimulator.simulate(population[chromIdx], nullptr, team);
+			raceSimulator.simulate(chromosome, nullptr, team);
 		}
 
 		const float chromEvaluation = raceSimulator.evaluate(team);
 		evaluationsSum += chromEvaluation;
-		population[chromIdx].setEvaluation(chromEvaluation);
+		chromosome.setEvaluation(chromEvaluation);
+		chromosome.setOriginalEvaluation(chromEvaluation);
 
 #ifdef SVG
 		svgManager.constructPaths(raceSimulator.podsPaths, Team::ENEMY == team);
@@ -1969,6 +1984,7 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 	Chromosome& destinationChromosome = newPopulation[destIdx];
 
 	destinationChromosome.setEvaluation(sourceChromosome.getEvaluation());
+	destinationChromosome.setOriginalEvaluation(sourceChromosome.getOriginalEvaluation());
 	destinationChromosome.setFlags(sourceChromosome.getFlags());
 	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
 		destinationChromosome.setGene(geneIdx, sourceChromosome.getGene(geneIdx));
