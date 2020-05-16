@@ -39,23 +39,14 @@ using ChromEvalIdxMap = std::multimap<float, int>;
 //static const string INPUT_FILE_NAME = "input_classic_track.txt";
 static const string INPUT_FILE_NAME = "input_triangle.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
-static const string EMPTY_STRING = "";
 static const string SPACE = " ";
 static const string BOOST = "BOOST";
 static const string SHIELD = "SHIELD";
 
 static constexpr int INVALID_ID = -1;
 static constexpr int INVALID_IDX = -1;
-static constexpr int INVALID_NODE_DEPTH = -1;
-static constexpr int TREE_ROOT_NODE_DEPTH = 1;
-static constexpr int ZERO_CHAR = '0';
-static constexpr int DIRECTIONS_COUNT = 8;
-static constexpr int BYTE_SIZE = 8;
 static constexpr int PAIR = 2;
 static constexpr int TRIPLET = 3;
-static constexpr int BASE_2 = 2;
-static constexpr int BASE_10 = 10;
-static constexpr int BASE_16 = 16;
 
 static constexpr int INVALID_COORD = -1;
 static constexpr int MAX_CHECKPOINTS_COUNT = 8;
@@ -74,14 +65,11 @@ static constexpr int MAX_THRUST = 100;
 static constexpr int BOOST_THRUST = 650;
 
 static constexpr unsigned int THRUST_MASK		= 0b0000'0000'0000'0000'0000'0000'1111'1111;
-static constexpr unsigned int ANGLE_MASK		= 0b0111'1110'0000'0000'0000'0000'0000'0000;
-static constexpr unsigned int ANGLE_MASK_SHIFT	= 21;
 
 static constexpr unsigned int RUNNER_FLAG		= 0b0000'0000'0000'0000'0000'0001'0000'0000;
 static constexpr unsigned int HUNTER_FLAG		= 0b0000'0000'0000'0000'0000'0010'0000'0000;
 static constexpr unsigned int SHIELD_FLAG		= 0b0000'0000'0000'0000'0100'0000'0000'0000;
 static constexpr unsigned int BOOST_FLAG		= 0b0000'0000'0000'0000'1000'0000'0000'0000;
-static constexpr unsigned int FIRST_TURN_FLAG	= 0b0000'0000'0000'0001'0000'0000'0000'0000;
 
 static constexpr float MIN_ANGLE = -18.f;
 static constexpr float MAX_ANGLE = 18.f;
@@ -100,25 +88,8 @@ static constexpr float SCORE_DIFF_WEIGHT		= 50.f;
 static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
 static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 
-/// Algorithms
-static constexpr int MAX_DEPTH = 4;
-
-static constexpr int THRUSTS_TO_TRY_COUNT = 2;
-static const int THRUSTS_TO_TRY[THRUSTS_TO_TRY_COUNT] = {
-	0,
-	100
-};
-
-static const float ALL_ANGLES[] = { -18.f, -17.f, -16.f, -15.f, -14.f, -13.f, -12.f, -11.f, 10.f, -9.f, -8.f, -7.f, -6.f, -5.f, -4.f, -3.f, -2.f, -1.f, 0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f, 8.f, 9.f, 10.f, 11.f, 12.f, 13.f, 14.f, 15.f, 16.f, 17.f, 18.f };
-static constexpr int ANGLES_TO_TRY_COUNT = 3;
-static const int ANGLES_TO_TRY[ANGLES_TO_TRY_COUNT] = {
-	0,	// -18
-	18,	// 0
-	36	// 18
-};
-
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 10;
+static constexpr int TURNS_TO_SIMULATE = 5;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
 static constexpr int ENEMY_MAX_POPULATION = 32;
@@ -174,6 +145,7 @@ struct Coords {
 		y{ y }
 	{}
 
+	/// Return an std::pair of the coords
 	pair<float, float> toPair() const { return { x, y }; }
 
 	/// Calculate the square of the distance to the given point
@@ -254,12 +226,8 @@ bool operator==(Coords lhs, Coords rhs) {
 class Action {
 public:
 	Action();
-	Action(const int angleIdx, const int thrust);
-	Action(const Coords target, const string& thrustStr);
 
 	void setAngle(const float angle) { this->angle = angle; }
-	void setTarget(const Coords traget) { this->target = target; }
-	Coords getTarget() const { return target; }
 	float getAngle() const { return angle; }
 
 	/// Based on the given genes, construct the action
@@ -267,14 +235,6 @@ public:
 	/// @param[in] gene1 the gene value to consider
 	/// @param[in] gene2 the gene value to consider
 	void parseGenes(const float gene0, const float gene1, const float gene2);
-
-	/// Update the bits for the angle index
-	/// @param[in] angleIdx the angle index
-	void setAngleIdx(const int angleIdx);
-
-	/// Extract the angle index value from flags
-	/// @return the integer for the angle index
-	int getAngleIdx() const;
 
 	/// Update the bits for the thrust power
 	/// @param[in] thrust the thrust power
@@ -295,7 +255,6 @@ public:
 	bool hasFlag(const unsigned int flag) const;
 
 private:
-	Coords target; ///< Target point for the pod
 	float angle; ///< Turn angle in the range [-18.f; 18.f]
 	unsigned int flags; ///< Thrust(in the first 8 bits) and flags for shield and boost
 };
@@ -307,34 +266,6 @@ Action::Action() :
 	angle{},
 	flags{}
 {
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Action::Action(const int angleIdx, const int thrust) :
-	flags{ 0 }
-{
-	setAngleIdx(angleIdx);
-	setThrust(thrust);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Action::Action(const Coords target, const string& thrustStr) :
-	target{ target },
-	flags{ 0 }
-{
-	if (BOOST == thrustStr) {
-		setFlag(BOOST_FLAG);
-	}
-	else if (SHIELD == thrustStr) {
-		setFlag(SHIELD_FLAG);
-	}
-	else {
-		setThrust(stoi(thrustStr));
-	}
 }
 
 //*************************************************************************************************************
@@ -367,23 +298,6 @@ void Action::parseGenes(const float gene0, const float gene1, const float gene2)
 	else {
 		setThrust(static_cast<int>(MAX_THRUST * ((gene2 - 0.25f) * 2.f)));
 	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Action::setAngleIdx(const int angleIdx) {
-	const int shiftedAngleIdx = angleIdx << ANGLE_MASK_SHIFT;
-	flags &= ~ANGLE_MASK; // First zero out only the bits for the angleIdx
-	flags |= static_cast<unsigned int>(shiftedAngleIdx); // Assign the new angleIdx
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-int Action::getAngleIdx() const {
-	unsigned int extractedAngleIdx = flags >> ANGLE_MASK_SHIFT;
-	return static_cast<int>(extractedAngleIdx);
 }
 
 //*************************************************************************************************************
@@ -518,7 +432,6 @@ bool Collision::isValid() const {
 class Track {
 public:
 	Track();
-	Track(const Coords(&checkpoints)[MAX_CHECKPOINTS_COUNT], const int checkpointsCount);
 
 	Coords getCheckpoint(const int cpIdx) const { return checkpoints[cpIdx]; }
 	int getCheckpointsCount() const { return checkpointsCount; }
@@ -544,17 +457,6 @@ Track::Track() :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Track::Track(const Coords(&checkpoints)[MAX_CHECKPOINTS_COUNT], const int checkpointsCount) :
-	checkpointsCount(checkpointsCount)
-{
-	for (int cpIdx = 0; cpIdx < checkpointsCount; ++cpIdx) {
-		this->checkpoints[cpIdx] = checkpoints[cpIdx];
-	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
 void Track::addCheckpoint(const int checkpointX, const int checkpointY) {
 	checkpoints[checkpointsCount] = { checkpointX, checkpointY };
 	++checkpointsCount;
@@ -569,16 +471,7 @@ void Track::addCheckpoint(const int checkpointX, const int checkpointY) {
 class Pod {
 public:
 	Pod();
-	Pod(
-		const int x,
-		const int y,
-		const int vx,
-		const int vy,
-		const int angle,
-		const int nextCheckPointId
-	);
 
-	void setPosition(const Coords position) { this->position = position; }
 	void setVelocity(const Coords velocity) { this->velocity = velocity; }
 	void setInitalShieldTurns(const int shieldTurns) { this->initialSheildTurnsLeft = shieldTurns; }
 
@@ -674,15 +567,10 @@ public:
 	/// @return the score from the evaluation
 	float score(const Track& track) const;
 
-	/// Output the pods data
-	void debug(const Track& track) const;
-
 	/// Flags helpers
 	void setFlag(const unsigned int flag, const bool initialTurn = false);
 	void unsetFlag(const unsigned int flag, const bool initialTurn = false);
 	bool hasFlag(const unsigned int flag, const bool initialTurn = false) const;
-
-	friend bool operator==(const Pod& lhs, const Pod& rhs);
 
 private:
 	Coords initialTurnPosition; ///< Where the pod starts the turn
@@ -715,21 +603,6 @@ private:
 
 Pod::Pod() {
 	init();
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Pod::Pod(
-	const int x,
-	const int y,
-	const int vx,
-	const int vy,
-	const int angle,
-	const int nextCheckPointIdArg
-) {
-	init();
-	fillData(x, y, vx, vy, angle, nextCheckPointIdArg);
 }
 
 //*************************************************************************************************************
@@ -818,18 +691,12 @@ void Pod::rotate(const Coords target) {
 //*************************************************************************************************************
 
 void Pod::rotate(float rotAngle) {
-	if (!hasFlag(FIRST_TURN_FLAG)) {
-		// Can't turn by more than 18 in one turn
-		if (rotAngle > MAX_ANGLE) {
-			rotAngle = MAX_ANGLE;
-		}
-		else if (rotAngle < MIN_ANGLE) {
-			rotAngle = MIN_ANGLE;
-		}
+	// Can't turn by more than 18 in one turn
+	if (rotAngle > MAX_ANGLE) {
+		rotAngle = MAX_ANGLE;
 	}
-	else {
-		// Only the first pod could rotate without limits
-		unsetFlag(FIRST_TURN_FLAG);
+	else if (rotAngle < MIN_ANGLE) {
+		rotAngle = MIN_ANGLE;
 	}
 
 	angle += rotAngle;
@@ -1040,7 +907,6 @@ void Pod::turnEnd() {
 	position.y = round(position.y);
 	velocity.x = truncate(velocity.x * FRICTION);
 	velocity.y = truncate(velocity.y * FRICTION);
-	//angle = round(angle);
 
 	// Don't forget that the timeout goes down by 1 each turn. It is reset to 100 when you pass a checkpoint
 	--turnsLeft;
@@ -1069,25 +935,6 @@ bool Pod::eliminated() const {
 float Pod::score(const Track& track) const {
 	const float distanceToNextCP = position.distance(track.getCheckpoint(nextCheckopoint));
 	return (PASSED_CPS_WEIGHT * passedCheckpoints) - distanceToNextCP;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Pod::debug(const Track& track) const {
-	cout << static_cast<int>(position.x) << SPACE;
-	cout << static_cast<int>(position.y) << SPACE;
-	cout << static_cast<int>(velocity.x) << SPACE;
-	cout << static_cast<int>(velocity.y) << SPACE;
-	cout << static_cast<int>(angle) << SPACE;
-	cout << nextCheckopoint << endl;
-
-	if (hasFlag(RUNNER_FLAG)) {
-		cout << "RUNNER:\t" << score(track);
-	}
-	else {
-		cout << "HUNTER:\t" << score(track);
-	}
 }
 
 //*************************************************************************************************************
@@ -1123,16 +970,6 @@ bool Pod::hasFlag(const unsigned int flag, const bool initialTurn) const {
 	}
 
 	return has;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-bool operator==(const Pod& lhs, const Pod& rhs) {
-	return
-		lhs.position == rhs.position &&
-		lhs.velocity == rhs.velocity &&
-		lhs.nextCheckopoint == lhs.nextCheckopoint;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1234,9 +1071,6 @@ void Chromosome::copy(const Chromosome& source) {
 /// Represents the whole race, holds information for the track, the pods, simulate pods and performs minimax
 class RaceSimulator {
 public:
-	RaceSimulator() = default;
-	RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track);
-
 	const Pod& getPod(const int podIdx) const { return pods[podIdx]; };
 	const Track getTrack() const { return track; }
 	
@@ -1334,17 +1168,6 @@ private:
 	Pod pods[PODS_COUNT]; ///< Pods participating in the race
 	Track track; ///< The track on which the race is performed
 };
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-RaceSimulator::RaceSimulator(const Pod(&pods)[PODS_COUNT], const Track& track) :
-	track(track)
-{
-	for (int podIdx = 0; podIdx < PODS_COUNT; ++podIdx) {
-		this->pods[podIdx] = pods[podIdx];
-	}
-}
 
 //*************************************************************************************************************
 //*************************************************************************************************************
@@ -1904,28 +1727,8 @@ GA::~GA() {
 //*************************************************************************************************************
 
 void GA::run(const int turnIdx) {
-//#ifdef TIME_MEASURERMENT
-//	clock_t enemyPodsBegin = clock();
-//#endif // TIME_MEASURERMENT
-
 	runForTeam(Team::ENEMY, turnIdx);
-
-//#ifdef TIME_MEASURERMENT
-//	clock_t enemyPodsEnd = clock();
-//	double enemy_elapsed_secs = double(enemyPodsEnd - enemyPodsBegin) / CLOCKS_PER_SEC;
-//	cerr << "Enemy simulation execution time: " << enemy_elapsed_secs * 1000 << endl;
-//
-//	clock_t myPodsBegin = clock();
-//#endif // TIME_MEASURERMENT
-
 	runForTeam(Team::MY, turnIdx);
-
-//#ifdef TIME_MEASURERMENT
-//	clock_t myPodsEnd = clock();
-//	double elapsed_secs = double(myPodsEnd - myPodsBegin) / CLOCKS_PER_SEC;
-//	cerr << "My simulation execution time: " << elapsed_secs * 1000 << endl;
-//#endif // TIME_MEASURERMENT
-
 	chooseTurnActions();
 }
 
@@ -2126,7 +1929,6 @@ void GA::elitism() {
 //*************************************************************************************************************
 
 void GA::makeChildren() {
-
 	// While the new population is not completly filled
 	// select a pair of parents
 	// crossover those parents using the Continuos Genetic Algorithm technique
@@ -2238,11 +2040,7 @@ void GA::chooseTurnActions() {
 class Game {
 public:
 	Game();
-	~Game();
 
-	void initGame();
-	void gameBegin();
-	void gameEnd();
 	void gameLoop();
 	void getGameInput();
 	void getTurnInput();
@@ -2250,8 +2048,6 @@ public:
 	void makeTurn();
 	void turnEnd();
 	void play();
-
-	void debug() const;
 
 private:
 	// Game specific members
@@ -2271,30 +2067,6 @@ Game::Game() :
 	stopGame{ false }
 {
 
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Game::~Game() {
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Game::initGame() {
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Game::gameBegin() {
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Game::gameEnd() {
 }
 
 //*************************************************************************************************************
@@ -2439,19 +2211,11 @@ void Game::turnEnd() {
 //*************************************************************************************************************
 
 void Game::play() {
-	initGame();
 	getGameInput();
-	gameBegin();
 	gameLoop();
-	gameEnd();
 }
 
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Game::debug() const {
-}
-
+//-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -2477,18 +2241,8 @@ int main(int argc, char** argv) {
 	cout.rdbuf(out.rdbuf());
 #endif // REDIRECT_INPUT
 
-//#ifdef TIME_MEASURERMENT
-//	clock_t begin = clock();
-//#endif // TIME_MEASURERM
-
 	Game game;
 	game.play();
-
-//#ifdef TIME_MEASURERMENT
-//	clock_t end = clock();
-//	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-//	cerr << "Game execution time: " << elapsed_secs * 1000 << endl;
-//#endif // TIME_MEASURERMENT
 
 #endif // TESTS
 
