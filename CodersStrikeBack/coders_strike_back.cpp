@@ -69,7 +69,6 @@ static constexpr unsigned int THRUST_MASK		= 0b0000'0000'0000'0000'0000'0000'111
 static constexpr unsigned int RUNNER_FLAG		= 0b0000'0000'0000'0000'0000'0001'0000'0000;
 static constexpr unsigned int HUNTER_FLAG		= 0b0000'0000'0000'0000'0000'0010'0000'0000;
 static constexpr unsigned int SHIELD_FLAG		= 0b0000'0000'0000'0000'0100'0000'0000'0000;
-static constexpr unsigned int BOOST_FLAG		= 0b0000'0000'0000'0000'1000'0000'0000'0000;
 
 static constexpr float MIN_ANGLE = -18.f;
 static constexpr float MAX_ANGLE = 18.f;
@@ -164,8 +163,6 @@ struct Coords {
 	/// @return the closest point on the line
 	Coords closestPointOnLine(Coords linePointA, Coords linePointB) const;
 
-	friend bool operator==(Coords lhs, Coords rhs);
-
 	float x; ///< X Coordinate
 	float y; ///< Y Coordinate
 };
@@ -209,13 +206,6 @@ Coords Coords::closestPointOnLine(Coords linePointA, Coords linePointB) const {
 	}
 
 	return clossestPoint;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-bool operator==(Coords lhs, Coords rhs) {
-	return lhs.x == rhs.x && lhs.y == rhs.y;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -336,9 +326,6 @@ void Action::output(const Coords podPosition, const float podAngle) const {
 
 	if (hasFlag(SHIELD_FLAG)) {
 		cout << static_cast<int>(round(px)) << SPACE << static_cast<int>(round(py)) << SPACE << "SHIELD" << endl;
-	}
-	else if (hasFlag(BOOST_FLAG)) {
-		cout << static_cast<int>(round(px)) << SPACE << static_cast<int>(round(py)) << SPACE << "BOOST" << endl;
 	}
 	else {
 		cout << static_cast<int>(round(px)) << SPACE << static_cast<int>(round(py)) << SPACE << getThrust() << endl;
@@ -788,11 +775,7 @@ void Pod::move(const float time) {
 //*************************************************************************************************************
 
 void Pod::applyAction(Action action) {
-#ifdef TESTS
-	rotate(action.getTarget());
-#else
 	rotate(action.getAngle());
-#endif // TESTS
 
 	if (action.hasFlag(SHIELD_FLAG)) {
 		activateShield();
@@ -801,9 +784,6 @@ void Pod::applyAction(Action action) {
 	int thrustToApply = action.getThrust();
 	if (action.hasFlag(SHIELD_FLAG)) {
 		thrustToApply = 0;
-	}	
-	else if (action.hasFlag(BOOST_FLAG)) {
-		thrustToApply = BOOST_THRUST;
 	}
 
 	applyThrust(thrustToApply);
