@@ -5,9 +5,9 @@
 static const std::string ENEMY = "ENEMY";
 static const std::string MY = "MY";
 
-static const std::string SVG_HTML_FILE_NAME = "coders_strike_back.html";
-static const std::string SVG_HTML_FILE_NAME_ENEMY_BEGIN = "coders_strike_back_enemy_";
-static const std::string SVG_HTML_FILE_NAME_MY_BEGIN = "coders_strike_back_my_";
+static const std::string SVG_HTML_FILE_NAME = "VisualDebug/coders_strike_back.html";
+static const std::string SVG_HTML_FILE_NAME_ENEMY_BEGIN = "VisualDebug/coders_strike_back_enemy_";
+static const std::string SVG_HTML_FILE_NAME_MY_BEGIN = "VisualDebug/coders_strike_back_my_";
 static const std::string SVG_HTML_FILE_NAME_END = ".html";
 static const std::string COMMA_SEPARATOR = ",";
 static const std::string SPACE_SEPARATOR = " ";

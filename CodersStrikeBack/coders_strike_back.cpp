@@ -24,7 +24,7 @@ using namespace std;
 #define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
-//#define DEBUG_ONE_TURN
+#define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
 
