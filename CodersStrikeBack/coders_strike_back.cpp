@@ -20,8 +20,8 @@
 
 using namespace std;
 
-//#define SVG
-//#define REDIRECT_INPUT
+#define SVG
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -32,7 +32,6 @@ using namespace std;
 #include "svg_manager.h"
 #endif // SVG
 
-//using ChromEvalIdxMap = std::map<float, int>;
 using ChromEvalIdxMap = std::multimap<float, int>;
 
 //static const string INPUT_FILE_NAME = "input.txt";
@@ -88,7 +87,7 @@ static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
 static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 5;
+static constexpr int TURNS_TO_SIMULATE = 16;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
 static constexpr int ENEMY_MAX_POPULATION = 32;
@@ -309,8 +308,6 @@ int Action::getThrust() const {
 //*************************************************************************************************************
 
 void Action::output(const Coords podPosition, const float podAngle) const {
-	//cerr << "Action::output()" << endl;
-
 	float a = podAngle + angle;
 
 	if (a >= 360.f) {
@@ -1197,7 +1194,6 @@ void RaceSimulator::fillPodData(
 	const int nextCheckPointId
 )
 {
-	//cerr << "fillPodData()" << endl;
 	pods[podIdx].fillData(x, y, vx, vy, angle, nextCheckPointId);
 }
 
@@ -1451,8 +1447,6 @@ bool RaceSimulator::compareCollisions(const Collision& collisionA, const Collisi
 //*************************************************************************************************************
 
 void RaceSimulator::setPodsRoles() {
-	//cerr << "setPodsRoles()" << endl;
-
 	// Assuming each team has 2 Pods
 	Pod& myPod0 = pods[0];
 	Pod& myPod1 = pods[1];
@@ -1497,8 +1491,6 @@ void RaceSimulator::turnEnd() {
 //*************************************************************************************************************
 
 void RaceSimulator::manageTurnAction(const Action turnAction, const int podIdx) {
-	//cerr << "manageTurnAction()" << endl;
-
 	if (turnAction.hasFlag(SHIELD_FLAG)) {
 		pods[podIdx].activateShield();
 		pods[podIdx].setFlag(SHIELD_FLAG, true);
@@ -1552,8 +1544,6 @@ float RaceSimulator::evaluate(const Team team) {
 //*************************************************************************************************************
 
 void RaceSimulator::makeFirstTurn() {
-	//cerr << "makeFirstTurn()" << endl;
-
 	Coords firstCheckPoint = track.getCheckpoint(1);
 	const int cpX = static_cast<int>(firstCheckPoint.x);
 	const int cpY = static_cast<int>(firstCheckPoint.y);
@@ -1725,8 +1715,6 @@ GA::~GA() {
 //*************************************************************************************************************
 
 void GA::run(const int turnIdx) {
-	//cerr << "run()" << endl;
-
 	runForTeam(Team::ENEMY, turnIdx);
 	runForTeam(Team::MY, turnIdx);
 	chooseTurnActions();
@@ -1736,8 +1724,6 @@ void GA::run(const int turnIdx) {
 //*************************************************************************************************************
 
 void GA::runForTeam(const Team team, const int turnIdx) {
-	//cerr << "runForTeam()" << endl;
-
 #ifdef SVG
 	svgManager.fileInit(turnIdx, Team::ENEMY == team);
 
@@ -1787,8 +1773,6 @@ void GA::runForTeam(const Team team, const int turnIdx) {
 //*************************************************************************************************************
 
 void GA::init() {
-	//cerr << "init()" << endl;
-
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
 		population[chromIdx].initRandom();
 	}
@@ -1798,9 +1782,6 @@ void GA::init() {
 //*************************************************************************************************************
 
 void GA::simulate(const Team team) {
-	//cerr << "simulate()" << endl;
-	//cerr << "Evaluation sum init: " << evaluationsSum << endl;
-
 #ifdef SVG
 	svgManager.filePrintStr(svgManager.constructGId(populationIdx));
 #endif // SVG
@@ -1823,11 +1804,7 @@ void GA::simulate(const Team team) {
 		}
 
 		const float chromEvaluation = raceSimulator.evaluate(team);
-		//cerr << "chromEvaluation: " << chromEvaluation << endl;
-
 		evaluationsSum += chromEvaluation;
-		//cerr << "evaluationsSum so far: " << evaluationsSum << endl;
-
 		chromosome.setEvaluation(chromEvaluation);
 		chromosome.setOriginalEvaluation(chromEvaluation);
 
@@ -1845,39 +1822,21 @@ void GA::simulate(const Team team) {
 //*************************************************************************************************************
 
 void GA::prepareForRoulleteWheel() {
-	//cerr << "prepareForRoulleteWheel()" << endl;
-	//cerr << "Evaluation sum: " << evaluationsSum << endl;
-
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
 		Chromosome& chromosome = population[chromIdx];
 		const float normalizedEvaluation = chromosome.getEvaluation() / evaluationsSum; // normalize the evalutions
-		//cerr << "Norm evaluation" << normalizedEvaluation << endl;
 
 		chromosome.setEvaluation(normalizedEvaluation);
 
-		//chromEvalIdxPairs[normalizedEvaluation] = chromIdx; // Is it good think to use floats as keys
 		chromEvalIdxPairs.insert(pair<float, int>(normalizedEvaluation, chromIdx)); // Is it good think to use floats as keys
 	}
-
-#ifdef REDIRECT_INPUT
-	float sum = 0.f;
-	for (pair<const float, int>& p : chromEvalIdxPairs) {
-		//cerr << "Norm evaluation" << p.first << endl;
-		sum += p.first;
-	}
-	
-	//cerr << "Norm sum:" << sum << endl;
-#endif // REDIRECT_INPUT
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void GA::selectParentsIdxs(int& parent0Idx, int& parent1Idx) {
-	//cerr << "selectParentsIdxs()" << endl;
-
 	float r = randomFloatBetween0and1();
-	//cerr << "First r: " << r << endl;
 
 	float cumulativeSum = 0.f;
 	parent0Idx = chromEvalIdxPairs.rbegin()->second; // If r is too big the loop will break before setting the parentIdx
@@ -1893,7 +1852,6 @@ void GA::selectParentsIdxs(int& parent0Idx, int& parent1Idx) {
 	parent1Idx = parent0Idx;
 	while (parent1Idx == parent0Idx) {
 		r = randomFloatBetween0and1();
-		//cerr << "Second r: " << r << endl;
 
 		cumulativeSum = 0.f;
 		parent1Idx = chromEvalIdxPairs.rbegin()->second; // If r is too big the loop will break before setting the parentIdx
@@ -1943,8 +1901,6 @@ void GA::mutate(int childrenCount) {
 //*************************************************************************************************************
 
 void GA::elitism() {
-	//cerr << "elitsm()" << endl;
-
 	const int elitsCount = static_cast<int>(POPULATION_SIZE * ELITISM_RATIO);
 
 	// Use the map, which holds sorted evaluations as keys
@@ -1961,8 +1917,6 @@ void GA::elitism() {
 //*************************************************************************************************************
 
 void GA::makeChildren() {
-	//cerr << "makeChildren()" << endl;
-
 	// While the new population is not completly filled
 	// select a pair of parents
 	// crossover those parents using the Continuos Genetic Algorithm technique
@@ -1982,8 +1936,6 @@ void GA::makeChildren() {
 //*************************************************************************************************************
 
 void GA::resetPopulation() {
-	//cerr << "resetPopulation()" << endl; 
-
 	evaluationsSum = 0.f;
 	chromEvalIdxPairs.clear();
 
@@ -2040,8 +1992,6 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 //*************************************************************************************************************
 
 void GA::switchTeamsForSimulation(const Team simulationTeam) {
-	//cerr << "switchTeamsForSimulation()" << endl;
-
 	if (Team::MY == simulationTeam) {
 		enemyActions.copy(population[0]); // Last elitism stored the best chromosome in 0th position
 		populationSize = MY_MAX_POPULATION;
@@ -2062,8 +2012,6 @@ void GA::switchTeamsForSimulation(const Team simulationTeam) {
 //*************************************************************************************************************
 
 void GA::chooseTurnActions() {
-	//cerr << "chooseTurnActions()" << endl;
-
 	const Chromosome& bestChromosome = population[0]; // Last elitism stored the best chromosome in 0th position
 
 	turnActions[0].parseGenes(bestChromosome.getGene(0), bestChromosome.getGene(1), bestChromosome.getGene(2));
@@ -2115,8 +2063,6 @@ Game::Game() :
 //*************************************************************************************************************
 
 void Game::gameLoop() {
-	//cerr << "gameLoop()" << endl;
-
 	while (!stopGame) {
 #ifdef TIME_MEASURERMENT
 		clock_t turnBeginTime = clock();
@@ -2145,8 +2091,6 @@ void Game::gameLoop() {
 //*************************************************************************************************************
 
 void Game::getGameInput() {
-	//cerr << "getGameInput()" << endl;
-
 	int laps;
 	cin >> laps; cin.ignore();
 
@@ -2178,8 +2122,6 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
-	//cerr << "getTurnInput()" << endl;
-
 	for (int i = 0; i < 2; i++) {
 		int x; // x position of your pod
 		int y; // y position of your pod
@@ -2223,20 +2165,14 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
-	//cerr << "turnBegin()" << endl;
-
-	//if (!stopGame && turnsCount > 0) {
-		raceSimulator.setPodsRoles();
-		ga.run(turnsCount);
-	//}
+	raceSimulator.setPodsRoles();
+	ga.run(turnsCount);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	//cerr << "makeTurn()" << endl;
-
 	if (0 == turnsCount) {
 		raceSimulator.makeFirstTurn();
 	}
@@ -2255,8 +2191,6 @@ void Game::makeTurn() {
 //*************************************************************************************************************
 
 void Game::turnEnd() {
-	//cerr << "Game::turnEnd()" << endl;
-
 	raceSimulator.turnEnd();
 	++turnsCount;
 }
@@ -2265,8 +2199,6 @@ void Game::turnEnd() {
 //*************************************************************************************************************
 
 void Game::play() {
-	//cerr << "play()" << endl;
-
 	getGameInput();
 	gameLoop();
 }
@@ -2297,7 +2229,6 @@ int main(int argc, char** argv) {
 	cout.rdbuf(out.rdbuf());
 #endif // REDIRECT_INPUT
 
-	//cerr << "main()" << endl;
 	Game game;
 	game.play();
 
