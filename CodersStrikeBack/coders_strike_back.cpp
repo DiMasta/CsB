@@ -20,11 +20,11 @@
 
 using namespace std;
 
-#define SVG
-#define REDIRECT_INPUT
+//#define SVG
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
-#define DEBUG_ONE_TURN
+//#define DEBUG_ONE_TURN
 //#define TESTS
 #define M_PI 3.14159265358979323846
 
@@ -87,7 +87,7 @@ static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
 static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 16;
+static constexpr int TURNS_TO_SIMULATE = 5;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
 static constexpr int ENEMY_MAX_POPULATION = 32;
@@ -1526,15 +1526,15 @@ float RaceSimulator::evaluate(const Team team) {
 		const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
 		const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
 
-		//if (Team::MY == team) {
-		//	evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
-		//	evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
-		//	evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
-		//}
-		//else {
+		if (Team::MY == team) {
+			evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
+			evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
+			evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
+		}
+		else {
 			evaluation += myRunner.score(track);
 			evaluation += myHunter.score(track);
-		//}
+		}
 	//}
 
 	return evaluation;
@@ -1677,6 +1677,7 @@ private:
 	Chromosome* newPopulation; ///< Points to newly created population
 
 	float evaluationsSum; ///< Sum of all chromosome evaluations, needed for faster roullete wheel
+	float minEvaluation; ///< The minumum evaluation for the current iteration of the algorithm
 	int populationIdx; ///< The index of the current population
 
 	/// Game specific members
@@ -1695,6 +1696,7 @@ private:
 
 GA::GA(RaceSimulator& raceSimulator) :
 	evaluationsSum{ 0.f },
+	minEvaluation{ 0.f },
 	populationIdx{ 0 },
 	raceSimulator{ raceSimulator },
 	populationSize{ ENEMY_MAX_POPULATION }
@@ -1790,6 +1792,7 @@ void GA::simulate(const Team team) {
 		Chromosome& chromosome = population[chromIdx];
 		if (chromosome.hasFlag(COPIED_FLAG)) {
 			const float originalEvaluation = chromosome.getOriginalEvaluation();
+			minEvaluation = min(minEvaluation, originalEvaluation);
 			evaluationsSum += originalEvaluation;
 			chromosome.setEvaluation(originalEvaluation);
 			chromosome.unsetFlag(COPIED_FLAG);
@@ -1804,6 +1807,7 @@ void GA::simulate(const Team team) {
 		}
 
 		const float chromEvaluation = raceSimulator.evaluate(team);
+		minEvaluation = min(minEvaluation, chromEvaluation);
 		evaluationsSum += chromEvaluation;
 		chromosome.setEvaluation(chromEvaluation);
 		chromosome.setOriginalEvaluation(chromEvaluation);
@@ -1822,14 +1826,29 @@ void GA::simulate(const Team team) {
 //*************************************************************************************************************
 
 void GA::prepareForRoulleteWheel() {
+	//cerr << "minEvaluation: " << minEvaluation << endl;
+	const float evaluationScaling = abs(minEvaluation);
+
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
 		Chromosome& chromosome = population[chromIdx];
-		const float normalizedEvaluation = chromosome.getEvaluation() / evaluationsSum; // normalize the evalutions
+		const float scaledEvalaution = chromosome.getEvaluation() + evaluationScaling;
+		const float scaledEvalautionSum = evaluationsSum + (POPULATION_SIZE * evaluationScaling);
+		const float normalizedEvaluation = scaledEvalaution / scaledEvalautionSum; // normalize the evalutions
 
 		chromosome.setEvaluation(normalizedEvaluation);
 
 		chromEvalIdxPairs.insert(pair<float, int>(normalizedEvaluation, chromIdx)); // Is it good think to use floats as keys
 	}
+
+#ifdef REDIRECT_INPUT
+	float sum = 0.f;
+	for (const pair<float, int>& p : chromEvalIdxPairs) {
+		sum += p.first;
+	}
+
+	int debug = 0;
+	++debug;
+#endif // REDIRECT_INPUT
 }
 
 //*************************************************************************************************************
@@ -1937,6 +1956,7 @@ void GA::makeChildren() {
 
 void GA::resetPopulation() {
 	evaluationsSum = 0.f;
+	minEvaluation = 0.f;
 	chromEvalIdxPairs.clear();
 
 	// If copied directly from previous population do not reset
@@ -1963,6 +1983,7 @@ void GA::resetPopulation() {
 
 void GA::reset() {
 	evaluationsSum = 0.f;
+	minEvaluation = 0.f;
 	populationIdx = 0;
 	chromEvalIdxPairs.clear();
 
