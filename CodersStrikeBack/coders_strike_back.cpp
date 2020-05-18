@@ -60,7 +60,7 @@ static constexpr int INITIAL_NEXT_CHECKPOINT_TURNS_LEFT = 100;
 static constexpr int SHEILD_TURNS = 3;
 static constexpr int RACE_LAPS = 3;
 static constexpr int MIN_THRUST = 0;
-static constexpr int MAX_THRUST = 100;
+static constexpr int MAX_THRUST = 200;
 static constexpr int BOOST_THRUST = 650;
 
 static constexpr unsigned int THRUST_MASK		= 0b0000'0000'0000'0000'0000'0000'1111'1111;
