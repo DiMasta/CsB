@@ -83,6 +83,7 @@ static constexpr float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 /// Weights
 static constexpr float PASSED_CPS_WEIGHT		= 50'000.f;
 static constexpr float SCORE_DIFF_WEIGHT		= 50.f;
+static constexpr float NEXTR_CP_DISTANCE_WEIGHT	= 4.f;
 static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
 static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
 
@@ -91,7 +92,7 @@ static constexpr int TURNS_TO_SIMULATE = 5;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
 static constexpr int ENEMY_MAX_POPULATION = 32;
-static constexpr int MY_MAX_POPULATION = 80;
+static constexpr int MY_MAX_POPULATION = 64;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
@@ -913,7 +914,7 @@ bool Pod::eliminated() const {
 
 float Pod::score(const Track& track) const {
 	const float distanceToNextCP = position.distance(track.getCheckpoint(nextCheckopoint));
-	return (PASSED_CPS_WEIGHT * passedCheckpoints) - distanceToNextCP;
+	return (PASSED_CPS_WEIGHT * passedCheckpoints) - (NEXTR_CP_DISTANCE_WEIGHT * distanceToNextCP);
 }
 
 //*************************************************************************************************************
@@ -1194,6 +1195,7 @@ void RaceSimulator::fillPodData(
 	const int nextCheckPointId
 )
 {
+	//cerr << "fillPodData()" << endl;
 	pods[podIdx].fillData(x, y, vx, vy, angle, nextCheckPointId);
 }
 
@@ -1447,6 +1449,7 @@ bool RaceSimulator::compareCollisions(const Collision& collisionA, const Collisi
 //*************************************************************************************************************
 
 void RaceSimulator::setPodsRoles() {
+	//cerr << "setPodsRoles()" << endl;
 	// Assuming each team has 2 Pods
 	Pod& myPod0 = pods[0];
 	Pod& myPod1 = pods[1];
@@ -1523,18 +1526,18 @@ float RaceSimulator::evaluate(const Team team) {
 	//else {
 		const Pod& myRunner = getPod(firstPersonTeam, RUNNER_FLAG);
 		const Pod& myHunter = getPod(firstPersonTeam, HUNTER_FLAG);
-		const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
-		const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
-
-		if (Team::MY == team) {
-			evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
-			evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
-			evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
-		}
-		else {
+		//const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
+		//const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
+		//
+		//if (Team::MY == team) {
+		//	evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
+		//	evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
+		//	evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
+		//}
+		//else {
 			evaluation += myRunner.score(track);
 			evaluation += myHunter.score(track);
-		}
+		//}
 	//}
 
 	return evaluation;
@@ -1547,8 +1550,14 @@ void RaceSimulator::makeFirstTurn() {
 	Coords firstCheckPoint = track.getCheckpoint(1);
 	const int cpX = static_cast<int>(firstCheckPoint.x);
 	const int cpY = static_cast<int>(firstCheckPoint.y);
+	
+	Coords lastCheckPoint = track.getCheckpoint(track.getCheckpointsCount() - 1);
+	const int lastCpX = static_cast<int>(lastCheckPoint.x);
+	const int lastCpY = static_cast<int>(lastCheckPoint.y);
 
 	cout << cpX << SPACE << cpY << SPACE << MAX_THRUST << endl;
+	//cout << lastCpX << SPACE << lastCpY << SPACE << MAX_THRUST << endl;
+
 	cout << cpX << SPACE << cpY << SPACE << BOOST << endl;
 }
 
@@ -1717,6 +1726,7 @@ GA::~GA() {
 //*************************************************************************************************************
 
 void GA::run(const int turnIdx) {
+	//cerr << "run()" << endl;
 	runForTeam(Team::ENEMY, turnIdx);
 	runForTeam(Team::MY, turnIdx);
 	chooseTurnActions();
@@ -1726,6 +1736,7 @@ void GA::run(const int turnIdx) {
 //*************************************************************************************************************
 
 void GA::runForTeam(const Team team, const int turnIdx) {
+	//cerr << "runForTeam()" << endl;
 #ifdef SVG
 	svgManager.fileInit(turnIdx, Team::ENEMY == team);
 
@@ -1775,6 +1786,7 @@ void GA::runForTeam(const Team team, const int turnIdx) {
 //*************************************************************************************************************
 
 void GA::init() {
+	//cerr << "init()" << endl;
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
 		population[chromIdx].initRandom();
 	}
@@ -1784,6 +1796,7 @@ void GA::init() {
 //*************************************************************************************************************
 
 void GA::simulate(const Team team) {
+	//cerr << "simulate()" << endl;
 #ifdef SVG
 	svgManager.filePrintStr(svgManager.constructGId(populationIdx));
 #endif // SVG
@@ -1826,7 +1839,7 @@ void GA::simulate(const Team team) {
 //*************************************************************************************************************
 
 void GA::prepareForRoulleteWheel() {
-	//cerr << "minEvaluation: " << minEvaluation << endl;
+	//cerr << "prepareForRoulleteWheel()" << endl;
 	const float evaluationScaling = abs(minEvaluation);
 
 	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
@@ -1846,8 +1859,7 @@ void GA::prepareForRoulleteWheel() {
 		sum += p.first;
 	}
 
-	int debug = 0;
-	++debug;
+	//cerr << "sum: " << sum << endl;
 #endif // REDIRECT_INPUT
 }
 
@@ -1869,7 +1881,7 @@ void GA::selectParentsIdxs(int& parent0Idx, int& parent1Idx) {
 	}
 
 	parent1Idx = parent0Idx;
-	while (parent1Idx == parent0Idx) {
+	//while (parent1Idx == parent0Idx) {
 		r = randomFloatBetween0and1();
 
 		cumulativeSum = 0.f;
@@ -1883,7 +1895,7 @@ void GA::selectParentsIdxs(int& parent0Idx, int& parent1Idx) {
 				break;
 			}
 		}
-	}
+	//}
 }
 
 //*************************************************************************************************************
@@ -1920,6 +1932,7 @@ void GA::mutate(int childrenCount) {
 //*************************************************************************************************************
 
 void GA::elitism() {
+	//cerr << "elitism()" << endl;
 	const int elitsCount = static_cast<int>(POPULATION_SIZE * ELITISM_RATIO);
 
 	// Use the map, which holds sorted evaluations as keys
@@ -1936,6 +1949,7 @@ void GA::elitism() {
 //*************************************************************************************************************
 
 void GA::makeChildren() {
+	//cerr << "makeChildren()" << endl;
 	// While the new population is not completly filled
 	// select a pair of parents
 	// crossover those parents using the Continuos Genetic Algorithm technique
@@ -1955,17 +1969,10 @@ void GA::makeChildren() {
 //*************************************************************************************************************
 
 void GA::resetPopulation() {
+	//cerr << "resetPopulation()" << endl;
 	evaluationsSum = 0.f;
 	minEvaluation = 0.f;
 	chromEvalIdxPairs.clear();
-
-	// If copied directly from previous population do not reset
-	for (int chromIdx = 0; chromIdx < POPULATION_SIZE; ++chromIdx) {
-		Chromosome& chromosome = newPopulation[chromIdx];
-		if (!chromosome.hasFlag(COPIED_FLAG)) {
-			chromosome.reset();
-		}
-	}
 
 	// Switch population arrays
 	if (0 == (populationIdx % 2)) {
@@ -2013,6 +2020,7 @@ void GA::copyChromosomeToNewPopulation(int destIdx, int sourceIdx) {
 //*************************************************************************************************************
 
 void GA::switchTeamsForSimulation(const Team simulationTeam) {
+	//cerr << "switchTeamsForSimulation()" << endl;
 	if (Team::MY == simulationTeam) {
 		enemyActions.copy(population[0]); // Last elitism stored the best chromosome in 0th position
 		populationSize = MY_MAX_POPULATION;
@@ -2033,6 +2041,7 @@ void GA::switchTeamsForSimulation(const Team simulationTeam) {
 //*************************************************************************************************************
 
 void GA::chooseTurnActions() {
+	//cerr << "chooseTurnActions()" << endl;
 	const Chromosome& bestChromosome = population[0]; // Last elitism stored the best chromosome in 0th position
 
 	turnActions[0].parseGenes(bestChromosome.getGene(0), bestChromosome.getGene(1), bestChromosome.getGene(2));
@@ -2084,6 +2093,7 @@ Game::Game() :
 //*************************************************************************************************************
 
 void Game::gameLoop() {
+	//cerr << "gameLoop()" << endl;
 	while (!stopGame) {
 #ifdef TIME_MEASURERMENT
 		clock_t turnBeginTime = clock();
@@ -2112,6 +2122,7 @@ void Game::gameLoop() {
 //*************************************************************************************************************
 
 void Game::getGameInput() {
+	//cerr << "getGameInput()" << endl;
 	int laps;
 	cin >> laps; cin.ignore();
 
@@ -2143,6 +2154,7 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
+	//cerr << "getTurnInput()" << endl;
 	for (int i = 0; i < 2; i++) {
 		int x; // x position of your pod
 		int y; // y position of your pod
@@ -2186,6 +2198,7 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
+	//cerr << "turnBegin()" << endl;
 	raceSimulator.setPodsRoles();
 	ga.run(turnsCount);
 }
@@ -2194,6 +2207,7 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
+	//cerr << "makeTurn()" << endl;
 	if (0 == turnsCount) {
 		raceSimulator.makeFirstTurn();
 	}
@@ -2212,6 +2226,7 @@ void Game::makeTurn() {
 //*************************************************************************************************************
 
 void Game::turnEnd() {
+	//cerr << "turnEnd()" << endl;
 	raceSimulator.turnEnd();
 	++turnsCount;
 }
@@ -2220,6 +2235,7 @@ void Game::turnEnd() {
 //*************************************************************************************************************
 
 void Game::play() {
+	//cerr << "play()" << endl;
 	getGameInput();
 	gameLoop();
 }
@@ -2250,6 +2266,7 @@ int main(int argc, char** argv) {
 	cout.rdbuf(out.rdbuf());
 #endif // REDIRECT_INPUT
 
+	//cerr << "main()" << endl;
 	Game game;
 	game.play();
 
