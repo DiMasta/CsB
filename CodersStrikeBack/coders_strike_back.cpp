@@ -1526,18 +1526,18 @@ float RaceSimulator::evaluate(const Team team) {
 	//else {
 		const Pod& myRunner = getPod(firstPersonTeam, RUNNER_FLAG);
 		const Pod& myHunter = getPod(firstPersonTeam, HUNTER_FLAG);
-		//const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
-		//const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
-		//
-		//if (Team::MY == team) {
-		//	evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
-		//	evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
-		//	evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
-		//}
-		//else {
+		const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
+		const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
+		
+		if (Team::MY == team) {
+			evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
+			evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
+			evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
+		}
+		else {
 			evaluation += myRunner.score(track);
 			evaluation += myHunter.score(track);
-		//}
+		}
 	//}
 
 	return evaluation;
