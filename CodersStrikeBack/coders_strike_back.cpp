@@ -224,7 +224,18 @@ public:
 	/// @param[in] gene0 the gene value to consider
 	/// @param[in] gene1 the gene value to consider
 	/// @param[in] gene2 the gene value to consider
-	void parseGenes(const float gene0, const float gene1, const float gene2);
+	/// @param[in] podRoleFlag the pod for which action is generated
+	/// @param[in] targets the target to rotate to in some case
+	void parseGenes(
+		const float gene0,
+		const float gene1,
+		const float gene2,
+		unsigned int podRoleFlag = 0,
+		const float* myRunnerNextCPAngle = nullptr,
+		const float* enemyRunnerPositionAngle = nullptr,
+		const float* enemyRunnerNextCPAngle = nullptr,
+		const float* enemyRunnerNextNextCPAngle = nullptr
+	);
 
 	/// Update the bits for the thrust power
 	/// @param[in] thrust the thrust power
@@ -261,32 +272,59 @@ Action::Action() :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Action::parseGenes(const float gene0, const float gene1, const float gene2) {
-	if (gene0 > 0.95f) {
-		setFlag(SHIELD_FLAG);
+void Action::parseGenes(
+	const float gene0,
+	const float gene1,
+	const float gene2,
+	unsigned int podRoleFlag,
+	const float* myRunnerNextCPAngle,
+	const float* enemyRunnerPositionAngle,
+	const float* enemyRunnerNextCPAngle,
+	const float* enemyRunnerNextNextCPAngle
+) {
+	if (gene0 < 0.1f && HUNTER_FLAG == podRoleFlag) {
+		setAngle(*enemyRunnerNextNextCPAngle);
+		setThrust(MAX_THRUST / 2);
+	}
+	else if (gene0 < 0.2f && HUNTER_FLAG == podRoleFlag) {
+		setAngle(*enemyRunnerNextCPAngle);
+		setThrust(MAX_THRUST / 2);
+	}
+	else if (gene0 < 0.3f && HUNTER_FLAG == podRoleFlag) {
+		setAngle(*enemyRunnerPositionAngle);
+		setThrust(MAX_THRUST / 2);
+	}
+	else if (gene0 < 0.3f && RUNNER_FLAG == podRoleFlag) {
+		setAngle(*myRunnerNextCPAngle);
+		setThrust(MAX_THRUST / 2);
 	}
 	else {
-		unsetFlag(SHIELD_FLAG);
-	}
+		if (gene0 > 0.95f) {
+			setFlag(SHIELD_FLAG);
+		}
+		else {
+			unsetFlag(SHIELD_FLAG);
+		}
 
-	if (gene1 < 0.25f) {
-		setAngle(MIN_ANGLE);
-	}
-	else if (gene1 > 0.75f) {
-		setAngle(MAX_ANGLE);
-	}
-	else {
-		setAngle(MIN_ANGLE + MAX_ANGLE_DOUBLED * ((gene1 - 0.25f) * 2.f));
-	}
+		if (gene1 < 0.25f) {
+			setAngle(MIN_ANGLE);
+		}
+		else if (gene1 > 0.75f) {
+			setAngle(MAX_ANGLE);
+		}
+		else {
+			setAngle(MIN_ANGLE + MAX_ANGLE_DOUBLED * ((gene1 - 0.25f) * 2.f));
+		}
 
-	if (gene2 < 0.25f) {
-		setThrust(MIN_THRUST);
-	}
-	else if (gene2 > 0.75f) {
-		setThrust(MAX_THRUST);
-	}
-	else {
-		setThrust(static_cast<int>(MAX_THRUST * ((gene2 - 0.25f) * 2.f)));
+		if (gene2 < 0.25f) {
+			setThrust(MIN_THRUST);
+		}
+		else if (gene2 > 0.75f) {
+			setThrust(MAX_THRUST);
+		}
+		else {
+			setThrust(static_cast<int>(MAX_THRUST * ((gene2 - 0.25f) * 2.f)));
+		}
 	}
 }
 
@@ -1123,6 +1161,19 @@ public:
 	/// Update pods for the end of the turn
 	void turnEnd();
 
+	/// Parse actions for my pods, based on the given genes
+	/// @param[in] podsActions the actions to fill
+	/// @param[in] g the given genes
+	void parserMyActions(
+		Action(&podsActions)[PODS_COUNT],
+		const float g00,
+		const float g01,
+		const float g02,
+		const float g10,
+		const float g11,
+		const float g12
+	);
+
 	/// Consider the turn action for the given pod
 	/// @param[in] turnAction the action which the Pod makes
 	/// @param[in] podIdx the pod index which makes the turn
@@ -1222,8 +1273,20 @@ void RaceSimulator::simulate(const Chromosome& actionsToSimulate, Chromosome* en
 		const float g12 = actionsToSimulate.getGene(CHROMOSOME_HALF_SIZE + geneIdx + 2);
 
 		if (enemyActions) {
-			podsActions[0].parseGenes(g00, g01, g02);
-			podsActions[1].parseGenes(g10, g11, g12);
+			parserMyActions(podsActions, g00, g01, g02, g10, g11, g12);
+			//if (podsActions[0].hasFlag(RUNNER_FLAG)) {
+			//	podsActions[0].parseGenes(g00, g01, g02);
+			//}
+			//else {
+			//	podsActions[0].parseGenes(g00, g01, g02);
+			//}
+			//
+			//if (podsActions[1].hasFlag(RUNNER_FLAG)) {
+			//	podsActions[1].parseGenes(g10, g11, g12);
+			//}
+			//else {
+			//	podsActions[1].parseGenes(g10, g11, g12);
+			//}
 
 			const float e00 = enemyActions->getGene(geneIdx);
 			const float e01 = enemyActions->getGene(geneIdx + 1);
@@ -1487,6 +1550,50 @@ void RaceSimulator::turnEnd() {
 	for (int podIdx = 0; podIdx < PODS_COUNT; ++podIdx) {
 		pods[podIdx].reset(); // After the last simulation
 		pods[podIdx].turnEnd();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void RaceSimulator::parserMyActions(
+	Action(&podsActions)[PODS_COUNT],
+	const float g00,
+	const float g01,
+	const float g02,
+	const float g10,
+	const float g11,
+	const float g12
+) {
+	const Pod& myRunner = getPod(Team::MY, RUNNER_FLAG);
+	const Pod& myHunter = getPod(Team::MY, HUNTER_FLAG);
+	const Pod& enemyRunner = getPod(Team::ENEMY, RUNNER_FLAG);
+
+	const Coords myRunnerNextCP = track.getCheckpoint(myRunner.getNextCheckopoint());
+	const float myRunnerNextCPAngle = myRunner.calcDircetionToTurn(myRunnerNextCP);
+
+	const Coords enemyRunnerPosition = enemyRunner.getPosition();
+	const float enemyRunnerPositionAngle = myHunter.calcDircetionToTurn(myRunnerNextCP);
+
+	const Coords enemyRunnerNextCP = track.getCheckpoint(enemyRunner.getNextCheckopoint());
+	const float enemyRunnerNextCPAngle = myHunter.calcDircetionToTurn(enemyRunnerNextCP);
+
+	const int enemyRunnerNextNextCPIdx = (enemyRunner.getNextCheckopoint() + 1) % track.getCheckpointsCount();
+	const Coords enemyRunnerNextNextCP = track.getCheckpoint(enemyRunnerNextNextCPIdx);
+	const float enemyRunnerNextNextCPAngle = myHunter.calcDircetionToTurn(track.getCheckpoint(enemyRunnerNextNextCPIdx));
+
+	if (podsActions[0].hasFlag(RUNNER_FLAG)) {
+		podsActions[0].parseGenes(g00, g01, g02, RUNNER_FLAG, &myRunnerNextCPAngle, &enemyRunnerPositionAngle, &enemyRunnerNextCPAngle, &enemyRunnerNextNextCPAngle);
+	}
+	else {
+		podsActions[0].parseGenes(g00, g01, g02, HUNTER_FLAG, &myRunnerNextCPAngle, &enemyRunnerPositionAngle, &enemyRunnerNextCPAngle, &enemyRunnerNextNextCPAngle);
+	}
+
+	if (podsActions[1].hasFlag(RUNNER_FLAG)) {
+		podsActions[1].parseGenes(g10, g11, g12, RUNNER_FLAG, &myRunnerNextCPAngle, &enemyRunnerPositionAngle, &enemyRunnerNextCPAngle, &enemyRunnerNextNextCPAngle);
+	}
+	else {
+		podsActions[1].parseGenes(g10, g11, g12, HUNTER_FLAG, &myRunnerNextCPAngle, &enemyRunnerPositionAngle, &enemyRunnerNextCPAngle, &enemyRunnerNextNextCPAngle);
 	}
 }
 
