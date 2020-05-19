@@ -88,7 +88,7 @@ static constexpr float HUNTER_DISTANCE_WEIGHT	= 4.f;
 static constexpr float HUNTER_ANGLE_WEIGHT		= 4.f;
 
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 8;
+static constexpr int TURNS_TO_SIMULATE = 5;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
 static constexpr int ENEMY_MAX_POPULATION = 64;
@@ -1053,6 +1053,10 @@ void Chromosome::initRandom() {
 
 	for (int geneIdx = 0; geneIdx < CHROMOSOME_SIZE; ++geneIdx) {
 		genes[geneIdx] = randomFloatBetween0and1();
+
+		if (0 == geneIdx % TRIPLET) {
+			genes[geneIdx] = 0.3f;
+		}
 	}
 }
 
