@@ -84,15 +84,15 @@ static constexpr float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 static constexpr float PASSED_CPS_WEIGHT		= 50'000.f;
 static constexpr float SCORE_DIFF_WEIGHT		= 50.f;
 static constexpr float NEXTR_CP_DISTANCE_WEIGHT	= 4.f;
-static constexpr float HUNTER_DISTANCE_WEIGHT	= 1.f;
-static constexpr float HUNTER_ANGLE_WEIGHT		= 1.f;
+static constexpr float HUNTER_DISTANCE_WEIGHT	= 4.f;
+static constexpr float HUNTER_ANGLE_WEIGHT		= 4.f;
 
 /// GA consts
-static constexpr int TURNS_TO_SIMULATE = 5;
+static constexpr int TURNS_TO_SIMULATE = 8;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
-static constexpr int ENEMY_MAX_POPULATION = 32;
-static constexpr int MY_MAX_POPULATION = 64;
+static constexpr int ENEMY_MAX_POPULATION = 64;
+static constexpr int MY_MAX_POPULATION = 128;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
@@ -1514,31 +1514,28 @@ float RaceSimulator::evaluate(const Team team) {
 		opponentTeam = Team::MY;
 	}
 
-	// When simulating enemy my pods are still
-	//if ((Team::ENEMY != team && teamWon(opponentTeam)) || teamLost(firstPersonTeam)) {
-	//	evaluation = MINUS_INFINITY;
-	//	cerr << "MINUS_INF" << endl;
-	//}
-	//else if ((Team::ENEMY != team && teamLost(opponentTeam)) || teamWon(firstPersonTeam)) {
-	//	evaluation = PLUS_INFINITY;
-	//	cerr << "PLUS_INF" << endl;
-	//}
-	//else {
-		const Pod& myRunner = getPod(firstPersonTeam, RUNNER_FLAG);
-		const Pod& myHunter = getPod(firstPersonTeam, HUNTER_FLAG);
-		const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
-		const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
+	const Pod& myRunner = getPod(firstPersonTeam, RUNNER_FLAG);
+	const Pod& myHunter = getPod(firstPersonTeam, HUNTER_FLAG);
+	const Pod& enemyRunner = getPod(opponentTeam, RUNNER_FLAG);
+	const Pod& enemyHUnter = getPod(opponentTeam, HUNTER_FLAG);
 		
-		if (Team::MY == team) {
-			evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
-			evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
-			evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
-		}
-		else {
-			evaluation += myRunner.score(track);
-			evaluation += myHunter.score(track);
-		}
-	//}
+	if (Team::MY == team) {
+		evaluation += SCORE_DIFF_WEIGHT * (myRunner.score(track) - enemyRunner.score(track));
+		evaluation -= HUNTER_DISTANCE_WEIGHT * myHunter.getPosition().distance(track.getCheckpoint(enemyRunner.getNextCheckopoint()));
+		evaluation -= HUNTER_ANGLE_WEIGHT * myHunter.calcAngleToTarget(enemyRunner.getPosition());
+	}
+	else {
+		evaluation += myRunner.score(track);
+		evaluation += myHunter.score(track);
+	}
+
+	// When simulating enemy my pods are still
+	if ((Team::ENEMY != team && teamWon(opponentTeam)) || teamLost(firstPersonTeam)) {
+		evaluation /= 2.f;
+	}
+	else if ((Team::ENEMY != team && teamLost(opponentTeam)) || teamWon(firstPersonTeam)) {
+		evaluation *= 2.f;
+	}
 
 	return evaluation;
 }
