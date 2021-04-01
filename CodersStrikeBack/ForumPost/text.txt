@@ -1,0 +1,31 @@
+Finally reached Legend! It was quite a journey. I'm satisfied with my result, top 200.
+
+But I have several things to clear in my mind.
+I gathered a lot of information from the blog posts. At the end I'm using GA. I'm simulating 8 turns ahead. And I use single chromosome per team.
+Each turn I first simulate the enemy pods for about 60 populations, considering my pods are still, maximizing the enemy checkpoints count and minimizing the distance for each enemy to its next checkpoint. Kind of like racing for time.
+After the enemy GA is complete I store the best enemy chromosome from the last population and start simulating my pods. I simulate them for about 100 populations. Each time I move my pods I also move the enemies, getting the enemy action from its best chromosome. Now the evaluation considers runner and hunter pods for each team, maximizing the score for my runner and minimizing the score for the enemy runner. The simulation looks like this(blue lines are the enemy paths, green ones are mine):
+
+![forum_post_simulation|600x338](upload://cv8M4YzsE7Ek59urXL31bDC66JT.gif) 
+
+Тhis raises many questions:
+First of all, I'm considering the enemy races for time, but what about if the enemy uses completely different strategy, if so would my simulations still hold some correct information. I image the best solution would be to somehow analyze the previous turns for the enemy and determine his strategy!?
+
+Second I'm wondering if simulations for my pods are correct, when collisions with the enemy accrues, since I've simulated the enemy alone. After a collision the whole path for the enemy may change and the next action for the enemy may mean complete gibberish.
+
+Also I'm wondering if the simulations hold meaningful value when the enemy pods are too far from mine, which happens very very often. Simulating several turns ahead will require very strong evaluations function to compensate the big distance between pods, right?
+
+The biggest problem I have is to use the allowed turn time well. My algorithm now takes around 50ms per turn. If I increase the populations sizes, after certain amount of populations, all chromosomes are converging to the optimal solution based, on my evaluation function, which most often is not very good. If I lower the populations sizes for enemy and my simulation I could simulate many more turns ahead, sometimes I've reached simulations above whole lap. But strangely as I increase the simulated turns my pods are playing more and more carefully, the runner is slow the hunter is not aggressive... Has this ever happened to anyone!? Maybe it's a bug in my evaluation function, which I cannot see.
+
+I think my current algorithm has a lot of potential, but requires a lot of fine tuning, which I suppose will come with experience in multiplayer games.
+
+I know that the top players use DFMonteMax tree search algorithms variations. And I gave it a try. At each depth trying 6-9 actions per pod then at depth % 4 == 0 simulating all pods and evaluating the game state:
+
+![tree_search_diagram|512x500](upload://aObLawJdadsdwzEvVTFu0hsA36l.png) 
+
+No matter how much I prune the tree or actions I couldn't get more than one turn depth search or I did but the pods were very clumsy. I thought of using different search trees for each pod, but I just cannot imagine how these trees would work simultaneously. How would my pods consider enemy actions if they are in another tree!? And many other questions. Now I'm reading about MonteCarlo tree search and after that I may revisit my tree search for this game.
+
+In both strategies I realized that I need very good evaluation function. It seems to me that finding one is as much effort as implementing everything else. How do you tune your evaluation functions? Often when I try to modify mine a little bit the behavior of the whole algorithm changes in bad direction, pods go out of the map, wondering around like hungry birds, one time my own pods start to fight each other. 
+
+The most interesting moment in my implementation was the searching for a bug almost 3 days and at the end it appeared to be uninitialized float. On my local machine it was always 0.f but in CodinGame sometimes it wasn't :slight_smile:
+
+The game is really good, but indeed is very hard to master.
