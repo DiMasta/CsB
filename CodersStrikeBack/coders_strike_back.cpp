@@ -1,3 +1,9 @@
+#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+#pragma GCC target("avx")  //Enable AVX
+#include <x86intrin.h> //AVX/SSE Extensions
+#include <bits/stdc++.h> //All main STD libraries
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -22,7 +28,7 @@ using namespace std;
 
 //#define SVG
 //#define REDIRECT_INPUT
-//#define OUTPUT_GAME_DATA
+#define OUTPUT_GAME_DATA
 #define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define TESTS
@@ -92,7 +98,7 @@ static constexpr int TURNS_TO_SIMULATE = 8;
 static constexpr int CHROMOSOME_SIZE = TURNS_TO_SIMULATE * TRIPLET * PAIR; // 3 genes per turn for a pod, first half is for 0th pod second half is for 1st pod
 static constexpr int POPULATION_SIZE = 16;
 static constexpr int ENEMY_MAX_POPULATION = 64;
-static constexpr int MY_MAX_POPULATION = 128;
+static constexpr int MY_MAX_POPULATION = 128 * 2;
 static constexpr float ELITISM_RATIO = 0.2f; // The perscentage of the best chromosomes to transfer directly to the next population, unchanged, after other operators are done!
 static constexpr float PROBABILITY_OF_MUTATION = 0.01f; // The probability to mutate a gene
 
@@ -276,7 +282,7 @@ void Action::parseGenes(const float gene0, const float gene1, const float gene2)
 		setAngle(MAX_ANGLE);
 	}
 	else {
-		setAngle(MIN_ANGLE + MAX_ANGLE_DOUBLED * ((gene1 - 0.25f) * 2.f));
+		setAngle(MIN_ANGLE + MAX_ANGLE * ((gene1 - 0.25f) * 2.f));
 	}
 
 	if (gene2 < 0.25f) {
@@ -286,7 +292,7 @@ void Action::parseGenes(const float gene0, const float gene1, const float gene2)
 		setThrust(MAX_THRUST);
 	}
 	else {
-		setThrust(static_cast<int>(MAX_THRUST * ((gene2 - 0.25f) * 2.f)));
+		setThrust(static_cast<int>(MAX_THRUST * (gene2 - 0.25f)));
 	}
 }
 
@@ -2204,7 +2210,7 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	//cerr << "makeTurn()" << endl;
+    cerr << "makeTurn()" << endl;
 	if (0 == turnsCount) {
 		raceSimulator.makeFirstTurn();
 	}
